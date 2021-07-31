@@ -1,0 +1,12 @@
+sync_signals.cdc
+0 - vs
+1 - vsync
+2 - vsync2
+3 - oldvs //
+4 - hsync
+5 - hsync2
+6 - HSync
+7 - row_counter
+8 - VSync
+9 - vs2
+10 - hframe
