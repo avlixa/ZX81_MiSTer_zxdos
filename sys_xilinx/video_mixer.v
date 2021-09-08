@@ -49,9 +49,17 @@ module video_mixer
    input wire [2:0]  osd_bkgr,
 
 	// video output signals
+`ifndef ZX1
 	output wire [5:0] VGA_R,
 	output wire [5:0] VGA_G,
 	output wire [5:0] VGA_B,
+`else
+	output wire [2:0] VGA_R,
+	output wire [2:0] VGA_G,
+	output wire [2:0] VGA_B,
+	//output wire       PAL,
+	//output wire       NTSC,
+`endif
 	output reg       VGA_VS,
 	output reg       VGA_HS,
 	output reg       VGA_DE
@@ -177,10 +185,15 @@ module video_mixer
       .window_out( ),
       .scanline_ena(1'b0)
    );   
-   
+
+`ifndef ZX1   
    assign VGA_R = vga_red_o[7:2];
    assign VGA_G = vga_green_o[7:2];
    assign VGA_B = vga_blue_o[7:2];
-   
+`else
+   assign VGA_R = vga_red_o[7:5];
+   assign VGA_G = vga_green_o[7:5];
+   assign VGA_B = vga_blue_o[7:5];
+`endif   
 endmodule
 

@@ -30,6 +30,7 @@
 #define KEY_SPACE 0x29
 #define KEY_ESC 0x76
 #define KEY_BCKSPC 0x66
+#define KEY_TAB 0x0d
 
 #define KEY_P 0x4d
 #define KEY_T 0x2c

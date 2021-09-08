@@ -24,11 +24,11 @@
 // TODO (avlixa)
 //   - optimizar scandoubler (solo 2x): pend
 //   - zx80 mode: only works via RGB
-//   - zx80 tape loading: not working
-//   - zx81 tape loading: some tapes don't work
-//   - chroma 81: working
+//   - chroma 81: working ZXDOS+, pending ZXUNO
 //   - chrs: not tested
-//   - loading via ear conector: pending
+//   - video compuesto ZXUNO: not working
+//   - BIOS video option: pending
+//   - config.ini file: pending
 // DONE (avlixa)
 //   - scandoubler: ok,
 //   - hps ioctl : ok,
@@ -38,10 +38,24 @@
 //   - keyboard from ps2: ok
 //   - joystick mapping: ok 
 //   - memory buffer en video_mixer/scandouble: ok
+//   - zx80 tape loading: working
+//   - zx81 tape loading: working
+//   - rom file load: working
+//   - loading via ear conector: done
+//   - F5 button for menu: ok
+//   - F10 button: on/off tape in sound
 
 //`define DEBUG
 
+`ifdef ZXD
 module zx81_zxdos_lx25
+`elsif ZX2
+module zx81_zxdos_lx16
+`elsif ZX1
+module zx81_zxuno_lx9
+`else
+module zx81_
+`endif
 (
 	//Master input clock
 	input         CLK_50M,
@@ -56,41 +70,90 @@ module zx81_zxdos_lx25
 //	//Must be based on CLK_VIDEO
 //	output        CE_PIXEL,
 
+`ifdef ZXD
 	output  [5:0] VGA_R,
 	output  [5:0] VGA_G,
 	output  [5:0] VGA_B,
 	output        VGA_HS,
 	output        VGA_VS,
+`elsif ZX2
+	output  [5:0] VGA_R,
+	output  [5:0] VGA_G,
+	output  [5:0] VGA_B,
+	output        VGA_HS,
+	output        VGA_VS,
+`elsif ZX1
+	output  [2:0] VGA_R,
+	output  [2:0] VGA_G,
+	output  [2:0] VGA_B,
+	output        VGA_HS,
+	output        VGA_VS,
+   output wire   PAL,
+   output wire   NTSC,
+`endif
 //	output        VGA_DE,    // = ~(VBlank | HBlank)
 
 //	input  [11:0] HDMI_WIDTH,
 //	input  [11:0] HDMI_HEIGHT,
 
 	output        LED_USER1,  // 1 - ON, 0 - OFF.
+`ifndef ZX1   
    output        LED_USER2,  // 1 - ON, 0 - OFF.
-
+`endif
 	output        AUDIO_L,
 	output        AUDIO_R,
+   input         AUDIO_EAR,
    
    //Keyboard
    input         PS2_CLK,
    input         PS2_DATA,
-   
+
    //Joystick
-   
+`ifdef ZXD
    output        JOY_CLK,
    output        JOY_LOAD,
    input         JOY_DATA,
    output        JOY_SELECT,
+`elsif ZX2
+   output        JOY_CLK,
+   output        JOY_LOAD,
+   input         JOY_DATA,
+`elsif ZX1
+   // Joystick1
+   input wire JOY1_U,
+   input wire JOY1_D,
+   input wire JOY1_L,
+   input wire JOY1_R,
+   input wire JOY1_A,
+   input wire JOY1_B,
+   inout wire JOY1_C,	
+
+   // Joystick2
+   input wire JOY2_U,
+   input wire JOY2_D,
+   input wire JOY2_L,
+   input wire JOY2_R,
+   input wire JOY2_A,
+   input wire JOY2_B,
+`endif
 
    //SRAM
+`ifdef ZXD
 	output [20:0]   sram_addr,
    inout   [7:0]   sram_data,
    output          sram_we_n,
 	output          sram_ub_n,
 	output          sram_lb_n,
+`elsif ZX2
+	output [20:0]   sram_addr,
+   inout   [7:0]   sram_data,
+   output          sram_we_n,
+`elsif ZX1
+	output [20:0]   sram_addr,
+   inout   [7:0]   sram_data,
+   output          sram_we_n,
+`endif
    
-
 	//SD-SPI
 	output        SD_SCK,
 	output        SD_MOSI,
@@ -227,6 +290,26 @@ wire        hs_aux, vs_aux;
 wire osd_window, osd_pixel;
 wire [2:0] osd_bkgr;
 
+`ifdef ZX1
+wire [6:0] joy1_s, joy2_s;
+
+assign joy1_s[0] = JOY1_U;
+assign joy1_s[1] = JOY1_D;
+assign joy1_s[2] = JOY1_L;
+assign joy1_s[3] = JOY1_R;
+assign joy1_s[4] = JOY1_A;
+assign joy1_s[5] = JOY1_B;
+assign joy1_s[6] = JOY1_C;
+
+assign joy2_s[0] = JOY2_U;
+assign joy2_s[1] = JOY2_D;
+assign joy2_s[2] = JOY2_L;
+assign joy2_s[3] = JOY2_R;
+assign joy2_s[4] = JOY2_A;
+assign joy2_s[5] = JOY2_B;
+assign joy2_s[6] = 1'b1;
+`endif
+
 //assign LED_USER  = status[19];
 
 //hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
@@ -238,10 +321,15 @@ hps_io hps_io
    .ps2_kbd_clk_in(PS2_CLK),
    .ps2_kbd_data_in(PS2_DATA),
 
+`ifndef ZX1
    .joy_data(JOY_DATA),
    .joy_clk(JOY_CLK),
    .joy_load_n(JOY_LOAD),
    .hsync_n_s(hs_aux),
+`else
+   .joy1_i(joy1_s),
+   .joy2_i(joy2_s),
+`endif
 
 	.ps2_key(ps2_key),
 	.ps2_mouse(ps2_mouse),
@@ -274,10 +362,13 @@ hps_io hps_io
    .spi_cs(SD_CS)
 );
 
+`ifndef ZX1   
 assign LED_USER1 = host_led1;
-assign LED_USER2 = host_led2;
-
+assign LED_USER2 = ~(host_led2 || tape_led);
 assign JOY_SELECT = hs_aux;
+`else
+assign LED_USER1 = ~(host_led1 || host_led2 || tape_led);
+`endif
 
 //zxdos inputs from HPS not available
 assign gamma_bus = 0;
@@ -332,7 +423,8 @@ always @* begin
 	endcase
 end
 
-wire       tape_in = 0;
+//wire       tape_in = 0;
+wire       tape_in;
 //wire [7:0] io_dout;
 reg  [7:0] io_dout;
 always @* begin
@@ -375,8 +467,8 @@ end
 //      default: tape_loader_patch_r <= 8'h00;
 //	endcase
 //end
-assign addr_zx81_nxt = addr - 16'h0347;
-assign addr_zx80_nxt = addr - 16'h0207;
+assign addr_zx81_nxt = addr[9:0] - 10'h347;
+assign addr_zx80_nxt = addr[9:0] - 10'h207;
 
 //////////////////   MEMORY   //////////////////
 wire low16k_e = ~addr[15] | ~mem_size[1];
@@ -385,10 +477,12 @@ wire ramHi_e  = addr[15] & mem_size[1] & (~addr[14] | (nM1 & mem_size[0]));
 wire ram_e    = addr[14] | ramHi_e | (ramLo_e & status[16]); //Low RAM:Off,8KB;
 
 //wire [15:0] ram_a;
-reg [15:0] ram_a, ram_tape_addr;
+reg [15:0] ram_a;
+reg [15:0] ram_tape_addr;
 always @* begin
 	casex({tapeloader, ramLo_e, mem_size, addr[15:14]})
 		//'b1_X_XX_XX: ram_a <= {2'b01, tape_type ? tape_addr + 14'd8 : tape_addr - 14'd1}; // loading address
+      //'b1_X_XX_XX: ram_a <= {2'b01, ram_tape_addr}; // tape loading address
       'b1_X_XX_XX: ram_a <= ram_tape_addr; // tape loading address
 
 		'b0_1_XX_XX: ram_a <= {3'b001,  ~status[15] ? rom_a : addr[12:0] }; //8K at 2000h //status 15:14 - CHR$128/UDG:128 Chars,64 Chars,Disabled;
@@ -425,26 +519,38 @@ wire wren_a = (~nWR & ~nMREQ & ram_e & ~ch81_e) | tapewrite_we;
 assign sram_addr = ram_addr;
 assign sram_data = ram_we_n ? 8'hZZ : ram_in;
 assign sram_we_n = ram_we_n;
+`ifdef ZXD
 assign sram_ub_n = 1'b1;
 assign sram_lb_n = 1'b0;
+`endif
 //assign ram_in = tapeloader ? tape_in_byte_r : cpu_dout;
+reg sram_cycle = 1'b0;
 assign ram_out = sram_data;
-always @(posedge clk_sys) begin
-   ram_in <= tapeloader ? tape_in_byte_r : cpu_dout;
-   ram_addr <= {5'd0, ram_a};
-   ram_we_n <= !wren_a;
+//always @(posedge clk_sys) begin
+always @* begin
+   //sram_cycle = !sram_cycle;
+   //if (sram_cycle) begin
+      ram_in   <= tapeloader ? tape_in_byte_r : cpu_dout;
+      ram_addr <= {5'd0, ram_a};
+      ram_we_n <= !wren_a;
+   //end
 end
 
 reg        zx81;
 reg  [1:0] mem_size; //0 - 1k, 1 - 16k, 2 - 32k, 3 - 48k
 wire       hz50 = ~status[6]; //Video frequency:50Hz,60Hz;
 
+`ifdef ZX1
+assign PAL  = hz50;
+assign NTSC = ~hz50;
+`endif
+
 //ROM ZX81 / ZX80
 wire [12:0] rom_a = nRFSH ? addr[12:0] : { addr[12:9]+(addr[13] & ram_data_latch[7] & addr[8] & ~status[14]), ram_data_latch[5:0], row_counter }; //status 15:14 - CHR$128/UDG:128 Chars,64 Chars,Disabled;
 wire        rom_e = ~addr[14] & ~addr[13] & (~addr[12] | zx81) & low16k_e;
 wire  [7:0] rom_out;
 //dpram #(.ADDRWIDTH(14), .NUMWORDS(12288), .MEM_INIT_FILE("rtl/zx8x.mem")) rom
-dpram #(.ADDRWIDTH(14)) rom
+dpram #(.ADDRWIDTH(14), .MEM_INIT_FILE("rtl/zx8x.mem")) rom
 (
 	.clock(clk_sys),
 	//.address_a({(zx81 ? {1'b0,rom_a[12]} : 2'h2), rom_a[11:0]}),
@@ -497,13 +603,17 @@ always @(posedge clk_sys) begin  :block3_write_to_tape_ram
 	if (reset) tape_size <= 0;
 	
 	if(ioctl_index[4:0] && !ioctl_index[7] && !ioctl_index[5]) begin //ioctl_index[7:5] = 'b0X0
-		if (ioctl_wr) tape_ram[ioctl_addr] <= ioctl_dout;
-		
-		old_download <= ioctl_download;
-		if(old_download && ~ioctl_download) begin
-			tape_size <= ioctl_addr[13:0];
+		if (ioctl_wr) begin
+         tape_ram[ioctl_addr[13:0]] <= ioctl_dout;
+			tape_size <= ioctl_addr[13:0] + 14'd1;
 			tape_type <= ioctl_index[6];              // 1 = .p / 0 = .o
-		end
+      end
+		
+//		old_download <= ioctl_download;
+//		if(old_download && ~ioctl_download) begin
+//			tape_size <= ioctl_addr[13:0];
+//			tape_type <= ioctl_index[6];              // 1 = .p / 0 = .o
+//		end
 	end
 end
 
@@ -529,7 +639,7 @@ always @(posedge clk_sys) begin  :block4_tape_loader
 	
 	if (~nM1 & old_nM1) begin
 		if (zx81) begin
-			if (addr == 16'h0347) begin
+			if (addr == 16'h0347 && tape_ready) begin
 				tape_loader_patch[1] <= 8'h00; //nop
 				tape_loader_patch[5] <= 8'h07; //0207h
 				tape_addr <= 14'h0;
@@ -541,7 +651,7 @@ always @(posedge clk_sys) begin  :block4_tape_loader
 				tapeloader <= 0;
 			end
 		end else begin
-			if (addr == 16'h0207) begin
+			if (addr == 16'h0207 && tape_ready) begin
 				tape_loader_patch[1] <= 8'h00; //nop
 				tape_loader_patch[5] <= 8'h03; //0203h
 				tape_addr <= 14'h0;
@@ -563,6 +673,7 @@ always @(posedge clk_sys) begin  :block4_tape_loader
 			tape_in_byte_r <= tape_in_byte;
 			tapewrite_we <= 1;
 		end else begin
+         tapewrite_we <= 0;
 			tape_loader_patch[1] <= 8'h37; //scf
 		end
 	end
@@ -628,21 +739,53 @@ always @(posedge clk_sys) begin  :block5
 
 end
 
-// vsync generator
-reg vsync; // cleaned version
-reg vs, oldvs2, vs2;    // momentary version, sometimes used for row_counter reset trick
-always @(posedge clk_sys) begin
+//// vsync generator Mister
+//reg vsync; // cleaned version
+//reg vs, oldvs2, vs2;    // momentary version, sometimes used for row_counter reset trick
+//always @(posedge clk_sys) begin
+//   if (reset) vs <= 0;
+//
+//	if (~nIORQ & ~nWR & ~NMIlatch) vs <= 0;
+//	if (~kbd_n & ~NMIlatch)        vs <= 1;
+//   //if (zx81) begin
+//      if (row_number == 10'd314 )  vs2 <= 0;
+//      if (vs || row_number == 10'd308 )   vs2 <= 1;
+//   //end 
+//   //else vs2 <= 0;
+//
+//	if(!hsync) vsync<=vs;
+//end
+
+// vsync generator Mist
+reg vs, oldvs2, vs2, ic18,ic19_1,ic19_2;    // momentary version, sometimes used for row_counter reset trick
+wire vsync = vs;
+wire csync = vsync & hsync;
+always @(posedge clk_sys) begin :vsync_gen_block
+
+	reg old_nM1;
+	old_nM1 <= nM1;
+   
    if (reset) vs <= 0;
 
-	if (~nIORQ & ~nWR & ~NMIlatch) vs <= 0;
-	if (~kbd_n & ~NMIlatch)        vs <= 1;
+	if (~(nIORQ | nWR) & (~zx81 | ~NMIlatch)) vs <= 0; // stop vsync - any OUT
+	if (~kbd_n & (~zx81 | ~NMIlatch))         vs <= 1; // start vsync - keyboard IN
    //if (zx81) begin
       if (row_number == 10'd314 )  vs2 <= 0;
       if (vs || row_number == 10'd308 )   vs2 <= 1;
    //end 
    //else vs2 <= 0;
 
-	if(!hsync) vsync<=vs;
+	//if(!hsync) vsync<=vs;
+
+	if (~nIORQ) ic18  <= 1;  // if IORQ - preset HSYNC start
+	if (~ic19_2) ic18 <= 0; // if sync active - preset sync end
+
+	// And 2 M1 later the presetted sync arrives at the csync pin
+	if (old_nM1 & ~nM1) begin
+		ic19_1 <= ~ic18;
+		ic19_2 <= ic19_1;
+	end
+	if (~vs) ic19_2 <= 0; //vsync keeps csync low
 end
 
 //// ZX81 upgrade
@@ -679,9 +822,9 @@ always @(posedge clk_sys) begin
    end
    else if(ce_3m25) begin
 		sync_counter <= sync_counter + 1'd1;
-		if(sync_counter == 206) sync_counter <= 0;
-		if(sync_counter == 15)  hsync <= 1;
-		if(sync_counter == 31)  hsync <= 0;
+		if(sync_counter == 8'd206) sync_counter <= 0;
+		if(sync_counter == 8'd15)  hsync <= 1;
+		if(sync_counter == 8'd31)  hsync <= 0;
 	end
 
 	if (~nM1 & ~nIORQ) {hsync,sync_counter} <= 0;
@@ -746,8 +889,8 @@ reg VSync, HSync;
 always @(posedge CLK_VIDEO) begin
 	HSync <= hsync2;
    oldvs2 <= vs2;
-	//if(~HSync & hsync2) VSync <= vsync2;
-   if(~HSync & hsync2) VSync <= vsync2 || ( vs2 && zx81 );
+	if(~HSync & hsync2) VSync <= vsync2;
+   //if(~HSync & hsync2) VSync <= vsync2 || ( vs2 && zx81 );
    if(HSync & ~hsync2) row_number <= row_number + 1'd1;
    if( !oldvs2 && vs2 ) row_number <= 10'd308;
    if( oldvs2 && !vs2 ) row_number <= 10'd0;
@@ -787,8 +930,9 @@ video_mixer #(400,1) video_mixer
 
 );
 
-assign VGA_VS = vs_aux;
-assign VGA_HS = hs_aux;
+
+assign VGA_VS = forced_scandoubler ? vs_aux : 1'b1;
+assign VGA_HS = forced_scandoubler ? hs_aux : ~(hs_aux ^ vs_aux);
 assign CLK_VIDEO = clk_sys;
 
 //////////////////// CHROMA81 ////////////////////
@@ -817,6 +961,9 @@ always @(posedge clk_sys) begin :block8
 end
 
 wire [7:0] ch81_out;  //assign ch81_out = 0;
+`ifdef ZX1
+assign ch81_out = 8'h00;
+`else
 dpram #(.ADDRWIDTH(14)) chroma81
 (
 	.clock(clk_sys),
@@ -829,11 +976,14 @@ dpram #(.ADDRWIDTH(14)) chroma81
 	.data_b(ioctl_dout),
 	.wren_b(ioctl_wr && ioctl_index[4:0] && (ioctl_index[7:5]==1) && !ioctl_addr[24:10])
 );
+`endif
 
 //////////////////// QS CHRS /////////////////////
 wire       qs_e = nRFSH ? (addr[15:10] == 'b100001) : (qs & (addr[15:9] == 'b0001111)); //8400-87FF / 1E00-1F00
 wire [7:0] qs_out;
-
+//`ifdef ZX1
+//assign qs_out = 8'h00;
+//`else
 dpram #(.ADDRWIDTH(10)) qschrs
 (
 	.clock(clk_sys),
@@ -846,6 +996,7 @@ dpram #(.ADDRWIDTH(10)) qschrs
 	.wren_b(ioctl_wr && ioctl_index[4:0] && (ioctl_index[7:5]==3) && !ioctl_addr[24:10]), // 'b011 QS CHAR
 	.data_b(ioctl_dout)
 );
+//`endif
 
 reg qs = 0;
 always @(posedge clk_sys) begin :block9_qschar
@@ -886,21 +1037,68 @@ ym2149 psg
 	.CHANNEL_C(psg_ch_c)
 );
 
-wire [9:0] audio_l = { 1'b0, psg_ch_a, 1'b0 } + { 2'b00, psg_ch_b };
-wire [9:0] audio_r = { 1'b0, psg_ch_c, 1'b0 } + { 2'b00, psg_ch_b };
+// Route vsync through a high-pass filter to filter out sync signals from the
+// tape audio
+wire [7:0] mic_out;
+wire       mic_bit = mic_out > 8'd16 && mic_out < 8'd224;
+
+rc_filter_1o #(
+	.R_ohms_g(33000),
+	.C_p_farads_g(47000),
+	.fclk_hz_g(6500000),
+	.cwidth_g(18)) mic_filter
+(
+	.clk_i(clk_sys),
+	.clken_i(ce_6m5),
+	.res_i(reset),
+	.din_i({1'b0, ~vsync, 6'd0 }),
+	.dout_o(mic_out)
+);
+
+wire [8:0] audio_l = { 1'b0, psg_ch_a } + { 1'b0, psg_ch_c } + { 3'd0, mic_bit, 4'd0 };
+wire [8:0] audio_r = { 1'b0, psg_ch_b } + { 1'b0, psg_ch_c } + { 3'd0, mic_bit, 4'd0 };
+
+reg tape_data;
+reg audiotapeon_r; 
+
+sigma_delta_dac #(7) dac_l
+(
+	.CLK(clk_sys),
+	.RESET(reset),
+	.DACin( audio_l[8:1] | ( 7'b1111111 & (tape_data && audiotapeon_r))),
+	.DACout(AUDIO_L)
+);
+
+sigma_delta_dac #(7) dac_r
+(
+	.CLK(clk_sys),
+	.RESET(reset),
+	.DACin(audio_r[8:1] | ( 7'b1111111 & (tape_data && audiotapeon_r))),
+	.DACout(AUDIO_R)
+);
+
+always @(posedge clk_sys) begin :audio_tape_reg
+	reg f10key_r;
+   f10key_r <= Fn[10];
+   if (reset) begin
+      audiotapeon_r   <= 1'b0;
+   end
+   else if ( f10key_r == 1'b1 && Fn[10] == 1'b0) audiotapeon_r <= ~audiotapeon_r;
+end
+
 
 //assign AUDIO_L   = {audio_l, 6'd0};
 //assign AUDIO_R   = {audio_r, 6'd0};
 //assign AUDIO_S   = 0;
 //assign AUDIO_MIX = status[3:2]; //Stereo mix:none,25%,50%,100%;
-assign AUDIO_L   = psg_ch_a[7];
-assign AUDIO_R   = psg_ch_c[7];
+//assign AUDIO_L   = psg_ch_a[7];
+//assign AUDIO_R   = psg_ch_c[7];
 
 
 ////////////////////   HID   /////////////////////
 
 wire kbd_n = nIORQ | nRD | addr[0];
-
+ 
 wire [11:1] Fn;
 wire  [2:0] mod;
 wire  [4:0] key_data;
@@ -947,4 +1145,54 @@ always @(posedge clk_sys) begin
 	end
 end
 
+// Loading via EAR
+// cuando se lee desde cinta, la imagen se apaga, es normal.
+// en un ZX81 real, la imagen se distorsiona, pero no se apaga
+// estas lineas sirven para reducir el numero de lecturas de bits
+// desde la cinta, y evitar que se sature el EAR del ZX81
+// la he cogido de uno de los cores que he estudiado
+
+reg tape_in_z1;
+reg tape_in_z2;
+reg tape_in_z3;
+//wire tape_in;
+reg tape_led;
+
+always @(posedge clk_sys) begin
+//   if ( ce_6m5 ) begin
+      tape_in_z3 <= tape_in_z2;
+      tape_in_z2 <= tape_in_z1;
+      tape_in_z1 <= AUDIO_EAR;
+// test past  - ok with galaxians 
+      if ((tape_in_z2==1'b0 && tape_in_z1==1'b1 && AUDIO_EAR==1'b0) 
+         || (tape_in_z2==1'b1 && tape_in_z1==1'b0 && AUDIO_EAR==1'b1))
+         tape_data <= AUDIO_EAR;
+      else 
+         tape_data <= tape_in_z1;
+      //tape_data <= tape_in_z2;
+
+//// test past - mal
+//      if ((tape_in_z2==1'b1 && tape_in_z1==1'b1 && AUDIO_EAR==1'b0) 
+//         || (tape_in_z2==1'b0 && tape_in_z1==1'b0 && AUDIO_EAR==1'b1))
+//         tape_data <= AUDIO_EAR;
+//      else 
+//         tape_data <= tape_in_z1;
+   
+////test past - mal
+//   tape_data <= tape_in_z1;
+
+////test past - mal
+//   tape_data <= tape_in_z3;
+
+////   end
+   
+   if (ce_psg) tape_led <= tape_data && tape_in_z1 && tape_in_z2;
+end
+
+// Emitir sonido cinta a CPU y audio desde entrada EAR
+assign tape_in = (tapeloader)? 1'b0 : ~tape_data;
+//assign tape_in = (tapeloader)? 1'b0 : ~AUDIO_EAR;
+//assign tape_led = tape_data &&  tape_in_z1 && tape_in_z2;
+
 endmodule
+

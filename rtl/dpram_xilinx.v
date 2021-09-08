@@ -15,13 +15,14 @@ module dpram #(parameter DATAWIDTH=8, ADDRWIDTH=8, NUMWORDS=1<<ADDRWIDTH, MEM_IN
 );
 
     // BRAM to implement a dual port (2**ADDRWIDTH)Bytes memory buffer
-    reg [DATAWIDTH-1:0] vram[0:2**ADDRWIDTH-1];
+    reg [DATAWIDTH-1:0] vram[0:(2**ADDRWIDTH)-1];
     integer i;
     initial begin
         for (i=0;i<(2**ADDRWIDTH);i=i+1)
             vram[i] = 8'h00;
-        if (MEM_INIT_FILE != "") $readmemh(MEM_INIT_FILE, vram);
+        if (MEM_INIT_FILE != "") begin $readmemh(MEM_INIT_FILE, vram); end
         for (i=0; i < 4; i=i+1) $display("%d:%h",i,vram[i]);        
+        //for (i=8192; i < 8196; i=i+1) $display("%d:%h",i,vram[i]);        
     end
     
     reg [DATAWIDTH-1:0] out_a, out_b;

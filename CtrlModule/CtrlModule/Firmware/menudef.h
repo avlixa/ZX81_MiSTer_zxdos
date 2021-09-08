@@ -96,7 +96,7 @@ static struct menu_entry topmenu2[]=
 // Our toplevel menu for ZX1
 static struct menu_entry topmenu1[]=
 {
-	{MENU_ENTRY_CALLBACK,"== ZX81/ZX80 for ZXDOS ==",MENU_ACTION(&Core_Credits)},
+	{MENU_ENTRY_CALLBACK,"== ZX81/ZX80 for ZXUNO ==",MENU_ACTION(&Core_Credits)},
 	{MENU_ENTRY_CALLBACK,"=========================",MENU_ACTION(&Core_Credits)},
 	{MENU_ENTRY_CALLBACK,"Reset",MENU_ACTION(&Reset)},
 	{MENU_ENTRY_CALLBACK,"Load Tape (.p) \x10",MENU_ACTION(&FileSelectorP_Show)},
@@ -105,6 +105,7 @@ static struct menu_entry topmenu1[]=
 	{MENU_ENTRY_CALLBACK,"Configuration options \x10",MENU_ACTION(&Options_menu)},
 	{MENU_ENTRY_CALLBACK,"Keyboard Help",MENU_ACTION(&Keyboard_Help)},
 	{MENU_ENTRY_CALLBACK,"Exit",MENU_ACTION(&Menu_Hide)},
+	{MENU_ENTRY_NULL,0,0}
 };
 
 
@@ -132,15 +133,15 @@ static struct menu_entry CoreCredits[]=
 {
 	{MENU_ENTRY_CALLBACK,"= ZX81/ZX80 Core Credits  =",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"===========================",MENU_ACTION(&NoSelection)},
-	{MENU_ENTRY_CALLBACK,"Chip-8 core for ZXUNO, AEON,",MENU_ACTION(&NoSelection)},
+	{MENU_ENTRY_CALLBACK,"ZX81/ZX80 core for ZXUNO, ",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"ZXDOS and ZXDOS+ boards." ,MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"",MENU_ACTION(&NoSelection)},
-	{MENU_ENTRY_CALLBACK,"Original core by:",MENU_ACTION(&NoSelection)},
-	{MENU_ENTRY_CALLBACK," - Carsten Elton Sorensen ",MENU_ACTION(&NoSelection)},
+	{MENU_ENTRY_CALLBACK,"Original cores by:",MENU_ACTION(&NoSelection)},
+	{MENU_ENTRY_CALLBACK," - Szombathelyi Gyorgy (Mist)",MENU_ACTION(&NoSelection)},
+	{MENU_ENTRY_CALLBACK," - Sorgelig (Mister)",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"",MENU_ACTION(&NoSelection)},
-	{MENU_ENTRY_CALLBACK,"Port made by:",MENU_ACTION(&NoSelection)},
-	{MENU_ENTRY_CALLBACK," - Azesmbog",MENU_ACTION(&NoSelection)},
-	{MENU_ENTRY_CALLBACK," - AvlixA",MENU_ACTION(&NoSelection)},
+	{MENU_ENTRY_CALLBACK,"Port made by: AvlixA",MENU_ACTION(&NoSelection)},
+	{MENU_ENTRY_CALLBACK,"",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_SUBMENU,"OK",MENU_ACTION(&topmenu)},
 	{MENU_ENTRY_NULL,0,0}
@@ -160,7 +161,8 @@ static struct menu_entry tapeloaded[]=
 {
 	{MENU_ENTRY_SUBMENU,"Tape file Loaded.",MENU_ACTION(tapeloaded)},
 	{MENU_ENTRY_SUBMENU,"Type LOAD \"\" + ENTER on ZX81",MENU_ACTION(tapeloaded)},
-	{MENU_ENTRY_SUBMENU,"Then press Play and wait",MENU_ACTION(tapeloaded)},
+	{MENU_ENTRY_SUBMENU,"",MENU_ACTION(tapeloaded)},
+	//{MENU_ENTRY_SUBMENU,"Then press Play and wait",MENU_ACTION(tapeloaded)},
 	{MENU_ENTRY_SUBMENU,"There is no image when loading",MENU_ACTION(tapeloaded)},
 	{MENU_ENTRY_SUBMENU,"",MENU_ACTION(tapeloaded)},
 	{MENU_ENTRY_SUBMENU,"Continue",MENU_ACTION(&topmenu)},

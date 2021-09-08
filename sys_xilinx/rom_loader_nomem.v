@@ -107,11 +107,11 @@ module rom_loader (
                         loader_write <= (loader_done) ? 1'b0 : 1'b1;
                         loader_write_data <= host_bootdata[31:24];
                         host_bootdata_save<= host_bootdata;
-                        host_rom_size <= host_bootdata_size;
+                        host_rom_size <= host_bootdata_size + 16'd1;
                   end
                   else begin
                      host_bootdata_ack <= 1'b0;
-                     if (bytesloaded[15:2] == host_bootdata_size[15:2]) 
+                     if (bytesloaded[15:0] > host_rom_size[15:0]) 
                         loader_done <= 1;
                      boot_state <= 2'b00;
                      loader_write <= 1'b0;

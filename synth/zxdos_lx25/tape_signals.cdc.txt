@@ -1,0 +1,26 @@
+0 tapeloader 1
+1 tapewrite_we 1
+
+2 ram_tape_addr 16
+3 ram_a 16
+
+4 ram_in 8
+5 dipswitches 16
+6 ram_we_n 1 
+
+7 tape_addr 14
+8 tape_size 14
+9 tape_in_byte_r 8 
+10 tapewrite_we 1 
+11 tape_ready 1 ¿?
+
+Cambios: 
+* ram_addr = ram_a
+* ordenar bien ram_addr/ram_a
+
+12 ioctl_wr 1
+13 tape_type 1
+14 ioctl_dout 8  -> loader_write_data
+15 ioctl_addr 14 -> loader_addr
+
+

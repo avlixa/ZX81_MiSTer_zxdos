@@ -4,7 +4,7 @@
 
 static int romindex=0;
 static int romcount;
-extern int filetype; //Tipo de fichero a cargar
+extern int file_type; //Tipo de fichero a cargar
 
 static void listroms();
 static void selectrom(int row);
@@ -170,6 +170,7 @@ void FileSelectorP_Show(int row)
 //                .o: 0000 0000 0001 0000 0000 - 00100
 //              .rom: 0000 0000 0011 1000 0000 - 00380
 
+	file_type = 1; //1 = .p, 2 = .o, 3 = .rom
 	dipsw = (dipsw & 0xFFC7F) | 0x80;
 	HW_HOST(REG_HOST_SW)=dipsw;
 	FileSelector_Show(row);
@@ -181,7 +182,7 @@ void FileSelectorO_Show(int row)
 //                .p: 0000 0000 0000 1000 0000 - 00080
 //                .o: 0000 0000 0001 0000 0000 - 00100
 //              .rom: 0000 0000 0011 1000 0000 - 00380
-
+	file_type = 2; //1 = .p, 2 = .o, 3 = .rom
 	dipsw = (dipsw & 0xFFC7F) | 0x100;
 	HW_HOST(REG_HOST_SW)=dipsw;
 	FileSelector_Show(row);
@@ -193,7 +194,7 @@ void FileSelectorROM_Show(int row)
 //                .p: 0000 0000 0000 1000 0000 - 00080
 //                .o: 0000 0000 0001 0000 0000 - 00100
 //              .rom: 0000 0000 0011 1000 0000 - 00380
-
+	file_type = 3; //1 = .p, 2 = .o, 3 = .rom
 	dipsw = (dipsw & 0xFFC7F) | 0x380;
 	HW_HOST(REG_HOST_SW)=dipsw;
 	FileSelector_Show(row);

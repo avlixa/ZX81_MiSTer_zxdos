@@ -25,11 +25,16 @@ module hps_io //#(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
    input wire        reset,
    input wire        p_o_reset_n,
    
+`ifndef ZX1
    // Joystick board signal
    input  wire joy_data,
    output wire joy_clk,
    output wire joy_load_n,
    input  wire hsync_n_s,
+`else
+   input  wire [6:0] joy1_i,
+   input  wire [6:0] joy2_i,
+`endif 
    
 	// buttons up to 32
 	output wire [31:0] joystick_0,
@@ -199,7 +204,8 @@ module hps_io //#(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
    
    //joysticks ****************************************************
    wire [11:0] joy1_s, joy2_s;
-   
+
+`ifndef ZX1   
    joydecoder #(.FRECCLKIN(52),.FRECCLKOUT(16) ) joydecoder (
       .clk(clk_sys),
       .joy_data(joy_data),
@@ -211,6 +217,13 @@ module hps_io //#(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
       .joy1_o(joy1_s), // -- MXYZ SACB RLDU  Negative Logic
       .joy2_o(joy2_s)  // -- MXYZ SACB RLDU  Negative Logic
    );
+`else
+   assign joy1_s[6:0] = joy1_i;
+   assign joy1_s[7]   = 1'b1;
+   assign joy2_s = 8'b11111111;
+//   assign joy2_s[6:0] = joy2_i;
+//   assign joy2_s[7]   = 1'b1;
+`endif   
 
    //hardreset ****************************************************
 
@@ -247,7 +260,11 @@ module hps_io //#(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
    assign host_ps2_clk  = ps2_kbd_clk_in || host_divert_keyboard;
 
    //Entrada de joystick para control de zpuflex (SACBRLDU)
+`ifdef ZX1
+   assign joy2zpuflex = { 1'b1 , // 1 - ZXUNO, 0 - ZXDOS
+`else   
    assign joy2zpuflex = { 1'b0 , // 1 - ZXUNO, 0 - ZXDOS
+`endif
                           ~(joy1_s[7:0] & joy2_s[7:0]) };
 
    CtrlModule #( .sysclk_frequency(520) ) // Sysclk frequency * 10 

@@ -130,7 +130,7 @@ void OSD_Show(int visible)
 
 		if(hh>500) {   //RGB
 			pixelclock=3;
-			hwide=260;
+			hwide=280;
 			//hl = 300;
 		}
 		else {       //VGA

@@ -18,7 +18,7 @@ int dipsw; //traspaso de opciones a core.
 // bit 0-1 - 
 // bit 2 - 
 // bit 
-int filetype=0; //tipo de fichero a cargar
+int file_type=0; //tipo de fichero a cargar
 
 //static char debugline[13][30];
 
@@ -73,7 +73,19 @@ static int LoadROM_nomenu(const char *filename)
 	int result=0;
 	int opened;
 
-	//HW_HOST(REG_HOST_CONTROL)=HOST_CONTROL_RESET; //Don't reset on load tape in ZX81 core
+//  dwsitch rom mask: 1111 1111 1100 0111 1111 - FFC7F 
+//                .p: 0000 0000 0000 1000 0000 - 00080
+//                .o: 0000 0000 0001 0000 0000 - 00100
+//              .rom: 0000 0000 0011 1000 0000 - 00380
+
+	switch(file_type) { //1 = .p, 2 = .o, 3 = .rom
+
+    	case 2:  dipsw = (dipsw & 0xFFC7F) | 0x100; break;
+		case 3: dipsw = (dipsw & 0xFFC7F) | 0x380; break;
+		default: dipsw = (dipsw & 0xFFC7F) | 0x80;
+	}	
+	HW_HOST(REG_HOST_SW)=dipsw;
+
 	HW_HOST(REG_HOST_CONTROL)=HOST_CONTROL_DIVERT_SDCARD|HOST_CONTROL_LED2; // Release reset but take control of the SD card
 
 	if((opened=FileOpen(&file,filename)))
@@ -219,10 +231,14 @@ int main(int argc,char **argv)
 	
 	if (LoadROM_nomenu("ZX81       ")) {
 		if (LoadROM_nomenu("ROMS       ")) {
-			if (!LoadROM_nomenu("ZX8X    ROM")) {	OSD_Puts("Error Loading ROM...\n");	}
+			if (!LoadROM_nomenu("ZX8X    ROM")) {	
+				OSD_Puts("Error Loading ROM...\n");	
+				LoadROM_nomenu("..         ");
+				Reset(0);       // Reset once loaded ROM
+			}
 			else 
 			{
-				//LoadROM_nomenu("..         ");
+				LoadROM_nomenu("..         ");
 				Reset(0);       // Reset once loaded ROM
 				OSD_Show(0);	// Hide OSD menu
 			}
@@ -241,13 +257,13 @@ int main(int argc,char **argv)
 	MENU_TOGGLE_VALUES = dipsw;
 	HW_HOST(REG_HOST_SW)=dipsw;
     
-	/*
+	
 	if(joy_pins & 0x100)
-		Set_Menu_1o2(1); //ZXUNO menu
+		topmenu = topmenu1; //ZXUNO menu
 	else
-		Set_Menu_1o2(2); //ZXDOS menu
-	*/
-	topmenu = topmenu2; //ZXDOS menu
+		topmenu = topmenu2; //ZXDOS menu
+	
+	//topmenu = topmenu2; //ZXDOS menu
 	
 	Menu_Set(topmenu); //ZXUNO/ZXDOS menu
 
