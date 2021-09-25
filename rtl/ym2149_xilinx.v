@@ -139,12 +139,9 @@ reg ena_div;
 reg ena_div_noise;
 
 //  p_divider
-// unnamed
+always @(posedge CLK) begin :block_noise_divider
 	reg [3:0]  cnt_div;
 	reg        noise_div;
-always @(posedge CLK) begin
-//	reg [3:0]  cnt_div;
-//	reg        noise_div;
 
 	if(CE) begin
 		ena_div <= 0;
@@ -165,13 +162,9 @@ end
 reg [2:0] noise_gen_op;
 
 //  p_noise_gen
-// unnamed
+always @(posedge CLK) begin  :block_noise_gen
 	reg [16:0] poly17;
 	reg [4:0]  noise_gen_cnt;
-
-always @(posedge CLK) begin
-//	reg [16:0] poly17;
-//	reg [4:0]  noise_gen_cnt;
 
 	if(CE) begin
 		if (ena_div_noise) begin
@@ -194,8 +187,7 @@ assign tone_gen_freq[3] = {ymreg[5][3:0], ymreg[4]};
 reg [3:1] tone_gen_op;
 
 //p_tone_gens
-//unnamed
-always @(posedge CLK) begin :p_tone_gens
+always @(posedge CLK) begin :block_p_tone_gens
 	integer i;
 	reg [11:0] tone_gen_cnt[1:3];
 
@@ -223,12 +215,9 @@ end
 reg env_ena;
 wire [15:0] env_gen_comp = {ymreg[12], ymreg[11]} ? {ymreg[12], ymreg[11]} - 1'd1 : 16'd0;
 
-//unnamed
-	reg [15:0] env_gen_cnt;
-
 //p_envelope_freq
-always @(posedge CLK) begin
-//	reg [15:0] env_gen_cnt;
+always @(posedge CLK) begin :block_envelope_freq
+	reg [15:0] env_gen_cnt;
 
 	if(CE) begin
 		env_ena <= 0;
@@ -249,12 +238,9 @@ wire is_bot    = (env_vol == 5'b00000);
 wire is_bot_p1 = (env_vol == 5'b00001);
 wire is_top_m1 = (env_vol == 5'b11110);
 wire is_top    = (env_vol == 5'b11111);
-// unnamed
+always @(posedge CLK) begin :block_envelope_shapes
 	reg env_hold;
 	reg env_inc;
-always @(posedge CLK) begin
-//	reg env_hold;
-//	reg env_inc;
 
 	// envelope shapes
 	// C AtAlH

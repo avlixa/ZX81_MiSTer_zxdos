@@ -24,9 +24,7 @@
 // TODO (avlixa)
 //   - optimizar scandoubler (solo 2x): pend
 //   - zx80 mode: only works via RGB
-//   - chroma 81: working ZXDOS+, pending ZXUNO
-//   - chrs: not tested
-//   - video compuesto ZXUNO: not working
+//   - video compuesto ZXUNO: working only with black border or inverse video
 //   - BIOS video option: pending
 //   - config.ini file: pending
 // DONE (avlixa)
@@ -42,7 +40,10 @@
 //   - zx81 tape loading: working
 //   - rom file load: working
 //   - loading via ear conector: done
-//   - F5 button for menu: ok
+//   - chrs: ok
+//   - chroma 81: working ZXDOS+, ZXDOS, ZXUNO
+//   - F5  button: menu on/off
+//   - F9  button: on/off mic sound to ear
 //   - F10 button: on/off tape in sound
 
 //`define DEBUG
@@ -225,7 +226,7 @@ wire locked;
 
 pll pll
 (	.refclk(CLK_50M),
-	.outclk_0(clk_sys),
+	.outclk_0(clk_sys), //52MHz
    .rst(1'b0),
 	.locked(locked)
 );
@@ -390,8 +391,8 @@ wire        nINT = addr[6];
 
 // ZX81 upgrade
 // http://searle.hostei.com/grant/zx80/zx80nmi.html
-wire nWAIT = ~nHALT | nNMI | (slow_mode & |status[18:17]);  //Slow mode speed:Original,NoWait,x2,x8;
-wire nNMI = ~NMIlatch | ~hsync;
+wire nWAIT = ~(nHALT & ~nNMI) | ~zx81 | (slow_mode & |status[18:17]);  //Slow mode speed:Original,NoWait,x2,x8;
+wire nNMI = ~(NMIlatch & hsync) | ~zx81;
 
 T80pa cpu
 (
@@ -511,7 +512,6 @@ reg   [7:0] tape_in_byte,tape_in_byte_r;
 //	.wren_a((~nWR & ~nMREQ & ram_e & ~ch81_e) | tapewrite_we),
 //	.q_a(ram_out)
 //);
-wire  [7:0]  ram_out;
 reg   [7:0]  ram_in;
 reg   [20:0] ram_addr;
 reg          ram_we_n;
@@ -519,30 +519,28 @@ wire wren_a = (~nWR & ~nMREQ & ram_e & ~ch81_e) | tapewrite_we;
 assign sram_addr = ram_addr;
 assign sram_data = ram_we_n ? 8'hZZ : ram_in;
 assign sram_we_n = ram_we_n;
+
 `ifdef ZXD
 assign sram_ub_n = 1'b1;
 assign sram_lb_n = 1'b0;
-`endif
 //assign ram_in = tapeloader ? tape_in_byte_r : cpu_dout;
-reg sram_cycle = 1'b0;
+
+wire  [7:0]  ram_out;
 assign ram_out = sram_data;
-//always @(posedge clk_sys) begin
 always @* begin
-   //sram_cycle = !sram_cycle;
-   //if (sram_cycle) begin
       ram_in   <= tapeloader ? tape_in_byte_r : cpu_dout;
       ram_addr <= {5'd0, ram_a};
       ram_we_n <= !wren_a;
-   //end
 end
+`endif      
 
 reg        zx81;
 reg  [1:0] mem_size; //0 - 1k, 1 - 16k, 2 - 32k, 3 - 48k
 wire       hz50 = ~status[6]; //Video frequency:50Hz,60Hz;
 
 `ifdef ZX1
-assign PAL  = hz50;
-assign NTSC = ~hz50;
+assign PAL  = ~hz50;
+assign NTSC = hz50;
 `endif
 
 //ROM ZX81 / ZX80
@@ -685,26 +683,33 @@ end
 
 // character generation
 wire      nopgen = addr[15] & ~mem_out[6] & nHALT;
-wire      data_latch_enable = nRFSH & ce_cpu_p & ~nMREQ;
+wire      data_latch_enable = nRFSH & ce_cpu_n & ~nMREQ; //Mist
+//wire      data_latch_enable = nRFSH & ce_cpu_p & ~nMREQ; //Mister
 reg [7:0] ram_data_latch;
 reg       nopgen_store;
 reg [2:0] row_counter;
-wire      shifter_start = nMREQ & nopgen_store & ce_cpu_p & shifter_en & ~NMIlatch;
+wire      shifter_start = nMREQ & nopgen_store & ce_cpu_p & shifter_en & (~zx81 | ~NMIlatch);
 reg [7:0] shifter_reg;
+//wire      video_out = (~status[7] ^ shifter_reg[7] ^ inverse) & !back_porch_counter & csync; //Mist
 reg       inverse;
-wire      video_out = (~status[7] ^ shifter_reg[7] ^ inverse); //Inverse video:Off,On;
+wire      video_out = (~status[7] ^ shifter_reg[7] ^ inverse); //Inverse video:Off,On;  //Mister
 reg [7:0] paper_reg;
 wire      border = ~paper_reg[7];
 reg [7:0] attr, attr_latch;
 reg       shifter_en;
 reg [9:0] row_number;
 
+reg[4:0]  back_porch_counter = 1;
+
 always @(posedge clk_sys) begin  :block5
+	reg old_csync, old_vsync;
 	reg old_hsync, old_hblank;
 	reg old_shifter_start;
 
 	if (ce_6m5) begin
+      old_vsync <= vsync;
 		old_hsync <= hsync;
+		old_csync <= csync;
 
 		if (data_latch_enable) begin
 			ram_data_latch <= mem_out;
@@ -714,8 +719,8 @@ always @(posedge clk_sys) begin  :block5
 
 		if (nMREQ & ce_cpu_p) inverse <= 0;
 
+      shifter_reg <= { shifter_reg[6:0], 1'b0 };
 		old_shifter_start <= shifter_start;
-		shifter_reg <= { shifter_reg[6:0], 1'b0 };
 		paper_reg   <= { paper_reg[6:0], 1'b0 };
 		
 		if (~old_shifter_start & shifter_start) begin
@@ -723,17 +728,29 @@ always @(posedge clk_sys) begin  :block5
 			inverse <= ram_data_latch[7];
 			paper_reg <= 'hFF;
 			attr <= ch81_dat[4] ? attr_latch : ch81_out;
-		end
+		end 
 
-		if (~old_hsync & hsync) row_counter <= row_counter + 1'd1; 
+		//if (old_csync & ~csync) row_counter <= row_counter + 1'd1; //Mist
+		if (~old_hsync & hsync) row_counter <= row_counter + 1'd1; //Mister
       //if (~hsync & hsync2) row_number <= row_number + 1'd1;
 
-		if (vs) row_counter <= 0; 
+		
+      `ifdef ZX1
+         if (~vsync) row_counter <= 3'h0;	
+      `else
+         if (~old_vsync) row_counter <= 3'h0;	
+      `endif
+      //if (~vsync) row_counter <= 0;	//Mist
+		//if (vs) row_counter <= 0;  //Mister
+
+		if (~old_csync & csync) back_porch_counter <= 1;
+   		if (back_porch_counter) back_porch_counter <= back_porch_counter + 1'd1;
 
 		//extended suppress to reduce garbage
 		old_hblank <= hblank;
-		if(~old_hblank & hblank) shifter_en <= 0;
-		if(old_hblank & ~hblank) shifter_en <= ~NMIlatch;
+		//if(~old_hblank & hblank) shifter_en <= 0;
+		//if(old_hblank & ~hblank) shifter_en <= ~NMIlatch;
+      shifter_en <= 1'b1;
 	end
    //if ( oldvs && !vs ) row_number <= 0;
 
@@ -766,9 +783,12 @@ always @(posedge clk_sys) begin :vsync_gen_block
 	old_nM1 <= nM1;
    
    if (reset) vs <= 0;
+   
+   //if (~(nIORQ | nWR) & (~zx81 | ~NMIlatch)) vs <= 1; // stop vsync - any OUT
+   //if (~kbd_n & (~zx81 | ~NMIlatch))         vs <= 0; // start vsync - keyboard IN
+   if (~(nIORQ | nWR) & ~NMIlatch) vs <= 1; // stop vsync - any OUT
+   if (~kbd_n & ~NMIlatch)         vs <= 0; // start vsync - keyboard IN
 
-	if (~(nIORQ | nWR) & (~zx81 | ~NMIlatch)) vs <= 0; // stop vsync - any OUT
-	if (~kbd_n & (~zx81 | ~NMIlatch))         vs <= 1; // start vsync - keyboard IN
    //if (zx81) begin
       if (row_number == 10'd314 )  vs2 <= 0;
       if (vs || row_number == 10'd308 )   vs2 <= 1;
@@ -777,7 +797,7 @@ always @(posedge clk_sys) begin :vsync_gen_block
 
 	//if(!hsync) vsync<=vs;
 
-	if (~nIORQ) ic18  <= 1;  // if IORQ - preset HSYNC start
+	if (~nIORQ) ic18 <= 1;  // if IORQ - preset HSYNC start
 	if (~ic19_2) ic18 <= 0; // if sync active - preset sync end
 
 	// And 2 M1 later the presetted sync arrives at the csync pin
@@ -822,19 +842,20 @@ always @(posedge clk_sys) begin
    end
    else if(ce_3m25) begin
 		sync_counter <= sync_counter + 1'd1;
-		if(sync_counter == 8'd206) sync_counter <= 0;
+		if(sync_counter == 8'd206 | (~nM1 & ~nIORQ)) sync_counter <= 0;
 		if(sync_counter == 8'd15)  hsync <= 1;
 		if(sync_counter == 8'd31)  hsync <= 0;
 	end
 
-	if (~nM1 & ~nIORQ) {hsync,sync_counter} <= 0;
+	if (~nM1 & ~nIORQ) {hsync,sync_counter} <= 2'b00;
 
-	if (zx81) begin
-		if (~nIORQ & ~nWR & (addr[0] ^ addr[1])) NMIlatch <= addr[1];
-	end
-	else begin
-		NMIlatch <= 0;
-	end
+   if (zx81) begin
+      if (~nIORQ & ~nWR & (addr[0] ^ addr[1])) NMIlatch <= addr[1];
+   end
+   else begin
+      NMIlatch <= 0;
+   end
+
 end
 
 //re-sync
@@ -856,13 +877,25 @@ always @(posedge clk_sys) begin :block7
 		if(cnt == 0)   hsync2 <= 1;
 		if(cnt == 32)  hsync2 <= 0;
 
-		if(cnt == 400) hblank <= 1;
-		if(cnt == 72)  hblank <= 0;
+		//if(cnt == 400) hblank <= 1;
+      if(cnt == 400) hblank <= 1;
+		if(cnt == 72 )  hblank <= 0;
+
+//		if(cnt == 381)   hsync2 <= 1;
+//		if(cnt == 0)  hsync2 <= 0;
+//		if(cnt == 368) hblank <= 1;
+//		if(cnt == 40)  hblank <= 0;
+
+//		if(cnt == 400)   hsync2 <= 1;
+//		if(cnt == 19)    hsync2 <= 0;
+//		if(cnt == 387)   hblank <= 1;
+//		if(cnt == 59)    hblank <= 0;
+
 
 		old_hsync <= hsync;
 		if(~old_hsync & hsync) begin
-			vreg <= {vreg[3:0], vsync};
-			vblank <= |{vreg,vsync};
+			vreg <= {vreg[3:0], vsync}; //HE CAMBIADO ~VSYNC
+			vblank <= |{vreg,vsync}; //HE CAMBIADO ~VSYNC
 			vsync2 <= vreg[2];
 			if(&vreg[3:2]) cnt <= 0;
 		end
@@ -912,8 +945,9 @@ video_mixer #(400,1) video_mixer
 	.G({g,{3{i & g}}}),
 	.B({b,{3{i & b}}}),
    
-   .HSync(HSync),
+   .HSync(~HSync),
    .VSync(VSync),
+
 	.HBlank(hblank),
 	.VBlank(vblank),
 
@@ -960,10 +994,31 @@ always @(posedge clk_sys) begin :block8
 	if(old_tapeloader & ~tapeloader & set_m0 & status[20]) ch81_dat[5:4] <= 2'b10; //CHROMA81:Disabled,Enabled;
 end
 
-wire [7:0] ch81_out;  //assign ch81_out = 0;
-`ifdef ZX1
-assign ch81_out = 8'h00;
+`ifndef ZXD
+reg [7:0]  ram_out;
+reg [7:0] ch81_out;  //assign ch81_out = 0;
+
+wire [13:0] ch81_addr  = nRFSH ? addr[13:0] : {ram_data_latch[7], rom_a[8:0]};
+wire        ch81_wrena = ~nWR & ~nMREQ & ch81_e;
+reg sram_cycle = 1'b0;
+
+always @(posedge clk_sys) begin
+   sram_cycle <= ~sram_cycle;
+   if (sram_cycle || tapeloader) begin 
+      ram_in   <= tapeloader ? tape_in_byte_r : cpu_dout;
+      ram_addr <= {5'd0, ram_a};
+      ram_we_n <= !wren_a;
+      if (ram_we_n) ch81_out <= sram_data;
+   end else begin
+      if (ram_we_n) ram_out = sram_data;
+      ram_addr <= { 7'b0000100, ch81_addr };
+      ram_we_n <= ~ch81_wrena;
+      ram_in   <= cpu_dout;
+   end
+end
+
 `else
+wire [7:0] ch81_out;  //assign ch81_out = 0;
 dpram #(.ADDRWIDTH(14)) chroma81
 (
 	.clock(clk_sys),
@@ -981,9 +1036,7 @@ dpram #(.ADDRWIDTH(14)) chroma81
 //////////////////// QS CHRS /////////////////////
 wire       qs_e = nRFSH ? (addr[15:10] == 'b100001) : (qs & (addr[15:9] == 'b0001111)); //8400-87FF / 1E00-1F00
 wire [7:0] qs_out;
-//`ifdef ZX1
-//assign qs_out = 8'h00;
-//`else
+
 dpram #(.ADDRWIDTH(10)) qschrs
 (
 	.clock(clk_sys),
@@ -996,7 +1049,7 @@ dpram #(.ADDRWIDTH(10)) qschrs
 	.wren_b(ioctl_wr && ioctl_index[4:0] && (ioctl_index[7:5]==3) && !ioctl_addr[24:10]), // 'b011 QS CHAR
 	.data_b(ioctl_dout)
 );
-//`endif
+
 
 reg qs = 0;
 always @(posedge clk_sys) begin :block9_qschar
@@ -1040,7 +1093,8 @@ ym2149 psg
 // Route vsync through a high-pass filter to filter out sync signals from the
 // tape audio
 wire [7:0] mic_out;
-wire       mic_bit = mic_out > 8'd16 && mic_out < 8'd224;
+wire       mic_bit = mic_out > 8'd8 && mic_out < 8'd224;
+reg audiomicon_r;
 
 rc_filter_1o #(
 	.R_ohms_g(33000),
@@ -1051,7 +1105,7 @@ rc_filter_1o #(
 	.clk_i(clk_sys),
 	.clken_i(ce_6m5),
 	.res_i(reset),
-	.din_i({1'b0, ~vsync, 6'd0 }),
+	.din_i({1'b0, vsync && audiomicon_r, 6'd0 }),
 	.dout_o(mic_out)
 );
 
@@ -1080,12 +1134,20 @@ sigma_delta_dac #(7) dac_r
 always @(posedge clk_sys) begin :audio_tape_reg
 	reg f10key_r;
    f10key_r <= Fn[10];
-   if (reset) begin
+   if (!locked) begin
       audiotapeon_r   <= 1'b0;
    end
    else if ( f10key_r == 1'b1 && Fn[10] == 1'b0) audiotapeon_r <= ~audiotapeon_r;
 end
 
+always @(posedge clk_sys) begin :audio_mic_reg
+	reg f9key_r;
+   f9key_r <= Fn[9];
+   if (!locked) begin
+      audiomicon_r   <= 1'b1;
+   end
+   else if ( f9key_r == 1'b1 && Fn[9] == 1'b0) audiomicon_r <= ~audiomicon_r;
+end
 
 //assign AUDIO_L   = {audio_l, 6'd0};
 //assign AUDIO_R   = {audio_r, 6'd0};

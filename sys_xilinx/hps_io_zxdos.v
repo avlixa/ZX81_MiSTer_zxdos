@@ -199,7 +199,7 @@ module hps_io //#(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
          videokey_prev <= 0;
       end
       //if (f2key_prev & !f2key) ramtype <= ramtype + 1'd1;
-      if (videokey_prev & !videokey) videomode <= ~videomode; //1 - VGA / 0 - RGB
+      if (videokey_prev & ~(videokey || videokey_ZPU)) videomode <= ~videomode; //1 - VGA / 0 - RGB
    end
    
    //joysticks ****************************************************

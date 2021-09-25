@@ -44,7 +44,7 @@ void Menu_Show()
 void Menu_Hide()
 {
 	// Wait for key releases before hiding the menu, to avoid stray keyup messages reaching the host core.
-	while(TestKey(KEY_ESC) || TestKey(KEY_ENTER) || TestKey(keys_p1[4]) || TestKey(KEY_F5))
+	while(/*TestKey(KEY_ESC) ||*/ TestKey(KEY_ENTER)&1 || TestKey(keys_p1[4])&1 || TestKey(KEY_F5)&1)
 		HandlePS2RawCodes();
 	OSD_Show(menu_visible=0);
 }
@@ -118,9 +118,9 @@ int Menu_Run()
 	struct menu_entry *m=menu;
 	struct hotkey *hk=hotkeys;
 
-	if(TestKey(KEY_ESC)&2 || TestKey(KEY_F5)&2)
+	if(/*TestKey(KEY_ESC)&2 ||*/ TestKey(KEY_F5)&3)
 	{
-		while(TestKey(KEY_ESC) || TestKey(KEY_F5))
+		while(/*TestKey(KEY_ESC) ||*/ TestKey(KEY_F5)&1)
 			HandlePS2RawCodes(); // Wait for KeyUp message before opening OSD, since this disables the keyboard for the MSX core.
 		OSD_Show(menu_visible^=1);
 	}

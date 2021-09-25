@@ -1,0 +1,25 @@
+sync_signals.cdc
+0 - vs
+1 - vsync = vs
+2 - vsync2
+3 - csync 
+4 - hsync
+5 - hsync2
+6 - HSync
+7 - cnt 9
+8 - VSync
+9 - vblank
+10 - hblank
+11 - vs_aux
+12 - hs_aux
+
+
+csync  x
+cnt 9  x
+vblank  X
+hblank  X
+HSync  x
+VSync x
+vs_aux NA -> video_mixer/vga_vs x
+hs_aux NA -> video_mixer/vga_hs x
+
