@@ -79,6 +79,7 @@ unsigned char sector_buffer[512];       // sector buffer
 
 #ifndef DISABLE_LONG_FILENAMES
 char longfilename[260];
+char longfilename_alt[260];
 #endif
 
 #define fat_buffer (*(FATBUFFER*)&sector_buffer) // Don't need a separate buffer for this.
@@ -283,6 +284,7 @@ DIRENTRY *NextDirEntry(int prev)
 
 			*o++=p[0x1c];
 			*o++=p[0x1e];
+			if (seq & 0x40) *o++=0; // last lfn part
 			prevlfn=1;
 		}
 #endif

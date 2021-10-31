@@ -148,14 +148,14 @@ module video_mixer
       end
 
       hde <= scandoubler ? ~hb_sd : ~hb_g;
-      vde <= scandoubler ? ~vb_sd : ~vb_g;
+      vde <= scandoubler ?  vb_sd :  vb_g;
       vs  <= scandoubler ?  vs_sd :  vs_g;
       hs  <= scandoubler ?  hs_sd :  hs_g;
 
       if(CE_PIXEL) begin
-         vga_red_i   <= !hde ? 0 : {r,2'b0};
-         vga_green_i <= !hde ? 0 : {g,2'b0};
-         vga_blue_i  <= !hde ? 0 : {b,2'b0};
+         vga_red_i   <= (!hde || !vde) ? 0 : {r,2'b0};
+         vga_green_i <= (!hde || !vde) ? 0 : {g,2'b0};
+         vga_blue_i  <= (!hde || !vde) ? 0 : {b,2'b0};
 
          VGA_VS <= vs;
          VGA_HS <= hs;

@@ -12,6 +12,7 @@ int keys_p2[5] = { 0x43, 0x42, 0x3b, 0x4b, KEY_SCROLLLOCK}; // IKJL -> H (Defaul
 
 //joystick input
 extern int joy_pins; //(ZXUNO/ZXDOS)SACBRLDU
+extern int comp_carrier_on;
 
 static struct menu_entry *menu;
 static int menu_visible=0;
@@ -115,6 +116,7 @@ void Menu_SetHotKeys(struct hotkey *head)
 int Menu_Run()
 {
 	int i;
+	int rightarrow_on, leftarrow_on;
 	struct menu_entry *m=menu;
 	struct hotkey *hk=hotkeys;
 
@@ -188,6 +190,12 @@ int Menu_Run()
 
 		HW_HOST(REG_HOST_JOYKEY) = joykeys;
 
+		//Composite video carrier on/off
+		if( TestKey(KEY_F8)&2 ) 
+		{	while(TestKey(KEY_F8)&1) HandlePS2RawCodes();
+			comp_carrier_on ^= 1; 
+		}
+
 		return(menu_visible);;
 	}
 	if(menu_visible)	// Swallow any keystrokes that occur while the OSD is visible...
@@ -200,6 +208,12 @@ int Menu_Run()
 		//// Player 1 - key for video mode change
 		//if(TestKey(keys_p1[4]))
 		//	joykeys|=0x10;
+
+		//Composite video carrier on/off
+		if( TestKey(KEY_F8)&2 ) 		
+		{	while(TestKey(KEY_F8)&1) HandlePS2RawCodes();
+			comp_carrier_on ^= 1; 
+		}
 
 		HW_HOST(REG_HOST_JOYKEY) = joykeys;
 	}
@@ -225,7 +239,7 @@ int Menu_Run()
 			MENU_ACTION_CALLBACK((m+menurows)->action)(ROW_LINEDOWN);
 	}
   // LEFT == PAGEUP //(ZXUNO/ZXDOS)SACB RLDU
-	if((TestKey(KEY_PAGEUP)&2) || (TestKey(keys_p1[2])&2) || ((joy_pins & 0x04 )>0))
+	if((TestKey(KEY_PAGEUP)&2) || (TestKey(keys_p1[2])&2) || ((joy_pins & 0x04 )>0) || (TestKey(KEY_LEFTARROW)&2))
 	{
 		if (( joy_pins & 0x04 ) > 0) DelayJoystick(); //wait to release the joystick
 
@@ -235,7 +249,7 @@ int Menu_Run()
 			MENU_ACTION_CALLBACK((m+menurows)->action)(ROW_PAGEUP);
 	}
   // RIGHT == PAGEDOWN //(ZXUNO/ZXDOS)SACB RLDU
-	if((TestKey(KEY_PAGEDOWN)&2) || (TestKey(keys_p1[3])&2) || ((joy_pins & 0x08 )>0))
+	if((TestKey(KEY_PAGEDOWN)&2) || (TestKey(keys_p1[3])&2) || ((joy_pins & 0x08 )>0) || (TestKey(KEY_RIGHTARROW)&2))
 	{
 		if (( joy_pins & 0x08 ) > 0) DelayJoystick(); //wait to release the joystick
 
@@ -256,6 +270,8 @@ int Menu_Run()
 	OSD_SetX(2);
 	OSD_SetY(currentrow);
 
+	leftarrow_on = 0;
+
 	if(TestKey(KEY_LEFTARROW)&2) // Decrease slider value
 	{
 		switch(m->type)
@@ -266,9 +282,12 @@ int Menu_Run()
 				DrawSlider(m);
 				break;
 			default:
+				leftarrow_on = 1;
 				break;
 		}
 	}
+
+	rightarrow_on = 0;
 
 	if(TestKey(KEY_RIGHTARROW)&2) // Increase slider value
 	{
@@ -280,6 +299,7 @@ int Menu_Run()
 				DrawSlider(m);
 				break;
 			default:
+				rightarrow_on = 1;
 				break;
 		}
 	}

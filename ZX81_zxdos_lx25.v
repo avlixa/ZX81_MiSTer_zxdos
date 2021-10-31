@@ -23,10 +23,7 @@
 //============================================================================
 // TODO (avlixa)
 //   - optimizar scandoubler (solo 2x): pend
-//   - zx80 mode: only works via RGB
-//   - video compuesto ZXUNO: working only with black border or inverse video
-//   - BIOS video option: pending
-//   - config.ini file: pending
+//   - zx80 mode: only works via RGB/VComp, via VGA depends on TV model
 // DONE (avlixa)
 //   - scandoubler: ok,
 //   - hps ioctl : ok,
@@ -42,7 +39,13 @@
 //   - loading via ear conector: done
 //   - chrs: ok
 //   - chroma 81: working ZXDOS+, ZXDOS, ZXUNO
+//   - HERO: bug in lower 1/3 of the screen, occurs due to chroma81, disabling it not occurs
+//   - video compuesto ZXUNO: ok
+//   - BIOS video option: ok
+//   - config.txt file: ok
 //   - F5  button: menu on/off
+//   - F7  button: chip AY select, jt49 / ym2149
+//   - F8  button: on/off PAL/NTSC carrier signal for composite video
 //   - F9  button: on/off mic sound to ear
 //   - F10 button: on/off tape in sound
 
@@ -222,11 +225,13 @@ wire vga_de;
 ////////////////////   CLOCKS   ///////////////////
 
 wire clk_sys;
+wire clk_156m; //156Mhz para portadora NTSC
 wire locked;
 
 pll pll
 (	.refclk(CLK_50M),
-	.outclk_0(clk_sys), //52MHz
+	.outclk_0(clk_sys),    //52MHz (52.083 ZXUNO)
+   .outclk_1(clk_156m), //156.25Mhz
    .rst(1'b0),
 	.locked(locked)
 );
@@ -284,6 +289,7 @@ wire  [4:0] joystick_1;
 wire [31:0] status;
 
 wire        forced_scandoubler;
+reg         def_vmode_r;
 wire [21:0] gamma_bus;
 reg       	reset;
 wire        hs_aux, vs_aux;
@@ -341,6 +347,7 @@ hps_io hps_io
 	.buttons(buttons),
 	.status(status),
 	.forced_scandoubler(forced_scandoubler),
+   .defvmode(def_vmode_r),
 
 	.ioctl_wr(ioctl_wr),
 	.ioctl_addr(ioctl_addr),
@@ -433,7 +440,7 @@ always @* begin
 		'b1XXX: io_dout <= { tape_in, hz50, 1'b0, key_data[4:0] & joy_kbd };
 		'b01XX: io_dout <= zxp_out;
 		'b001X: io_dout <= 8'hDF;
-		'b0001: io_dout <= psg_out;
+		'b0001: io_dout <= psgjt_r ? psg_outjt : psg_out;
 		'b0000: io_dout <= 8'hFF;
 	endcase
 end
@@ -528,9 +535,15 @@ assign sram_lb_n = 1'b0;
 wire  [7:0]  ram_out;
 assign ram_out = sram_data;
 always @* begin
+   if(!locked) begin
+      ram_addr <= 21'h08FD5;
+      ram_we_n <= 1'b1;
+      def_vmode_r <= ~sram_data[0];
+   end else begin
       ram_in   <= tapeloader ? tape_in_byte_r : cpu_dout;
       ram_addr <= {5'd0, ram_a};
       ram_we_n <= !wren_a;
+   end 
 end
 `endif      
 
@@ -860,11 +873,14 @@ end
 
 //re-sync
 reg hsync2, vsync2;
-reg hblank, vblank;
+//reg hblank, vblank, vblank_pre;
+reg hblank, vblank_rgb, vblank_vga;
+wire vblank;
+
 always @(posedge clk_sys) begin :block7
 	reg [8:0] cnt;
 	reg [4:0] vreg;
-	reg       old_hsync;
+   reg       old_hsync;
    if (reset) begin
       cnt  <= 9'h000;
       vreg <= 5'h00;
@@ -895,17 +911,22 @@ always @(posedge clk_sys) begin :block7
 		old_hsync <= hsync;
 		if(~old_hsync & hsync) begin
 			vreg <= {vreg[3:0], vsync}; //HE CAMBIADO ~VSYNC
-			vblank <= |{vreg,vsync}; //HE CAMBIADO ~VSYNC
+			//vblank <= |{vreg, vsync}; //HE CAMBIADO ~VSYNC
+         //vblank <= &{vreg, vsync}; //HE CAMBIADO ~VSYNC
+         vblank_vga <= &{vreg[2:0], vsync}; //HE CAMBIADO ~VSYNC
 			vsync2 <= vreg[2];
 			if(&vreg[3:2]) cnt <= 0;
 		end
+      vblank_rgb <= &{vreg, vsync}; //HE CAMBIADO ~VSYNC
 	end
 end
+
+assign vblank = forced_scandoubler ? vblank_vga : vblank_rgb;
 
 //wire i,g,r,b;
 reg i,g,r,b;
 always @* begin
-	casex({status[5] & border, ch81_dat[5], border, video_out}) //Black border:Off,On;
+	casex({(status[5] & border) || ~vblank, ch81_dat[5], border, video_out}) //Black border:Off,On;
 		'b1XXX: {i,g,r,b} <= 0;
 		'b00XX: {i,g,r,b} <= {4{video_out}};
 		'b011X: {i,g,r,b} <= ch81_dat[3:0];
@@ -964,10 +985,28 @@ video_mixer #(400,1) video_mixer
 
 );
 
+wire clkcolor4x;
+reg vcompport_r;
+reg psgjt_r;
 
-assign VGA_VS = forced_scandoubler ? vs_aux : 1'b1;
+assign VGA_VS = (forced_scandoubler) ? vs_aux : 
+`ifdef ZX1
+                (~vcompport_r) ? 1'b1 : clkcolor4x;
+`else
+                1'b1;
+`endif                
 assign VGA_HS = forced_scandoubler ? hs_aux : ~(hs_aux ^ vs_aux);
 assign CLK_VIDEO = clk_sys;
+
+`ifdef ZX1
+//   --Portadora para Video compuesto NTSC/PAL
+gencolorclk gencolorclk
+( .clk( clk_156m ), //reloj lo ms rpido posible (ahora mismo, 140 MHz o 156.25 Mhz segun valor de altern)
+  .mode(~hz50),     // 0=PAL, 1=NTSC
+  .altern(1'b1),    // 0=140 MHz, 1=156.25 MHz
+  .clkcolor4x(clkcolor4x) //(17.734475 MHz PAL  14.31818 MHz NTSC)
+);
+`endif
 
 //////////////////// CHROMA81 ////////////////////
 // mapped at C000 and accessible only in non-M1 cycle
@@ -998,20 +1037,35 @@ end
 reg [7:0]  ram_out;
 reg [7:0] ch81_out;  //assign ch81_out = 0;
 
-wire [13:0] ch81_addr  = nRFSH ? addr[13:0] : {ram_data_latch[7], rom_a[8:0]};
-wire        ch81_wrena = ~nWR & ~nMREQ & ch81_e;
+//wire [13:0] ch81_addr  = nRFSH ? addr[13:0] : {ram_data_latch[7], rom_a[8:0]};
+//wire        ch81_wrena = ~nWR & ~nMREQ & ch81_e;
 reg sram_cycle = 1'b0;
+reg  [13:0] ch81_addr;
+reg   ch81_wrena;
+wire chroma81_loader = ioctl_wr && ioctl_index[4:0] && (ioctl_index[7:5]==1) && !ioctl_addr[24:10];
 
 always @(posedge clk_sys) begin
    sram_cycle <= ~sram_cycle;
-   if (sram_cycle || tapeloader) begin 
-      ram_in   <= tapeloader ? tape_in_byte_r : cpu_dout;
-      ram_addr <= {5'd0, ram_a};
-      ram_we_n <= !wren_a;
-      if (ram_we_n) ch81_out <= sram_data;
+   ch81_addr  <= nRFSH ? addr[13:0] : {ram_data_latch[7], rom_a[8:0]};
+   ch81_wrena <= ~nWR & ~nMREQ & ch81_e;
+   if(!locked) begin
+      ram_addr <= 21'h08FD5;
+      ram_we_n <= 1'b1;
+      def_vmode_r <= sram_data[0];
+//   end else if (sram_cycle || tapeloader) begin  
+//      ram_in   <= tapeloader ? tape_in_byte_r : cpu_dout;
+//      ram_addr <= {5'd0, ram_a};
+//      ram_we_n <= !wren_a;
+//      if (ram_we_n && ~tapeloader) ch81_out <= sram_data;
+   end else if (sram_cycle || tapeloader || chroma81_loader) begin  
+      ram_in   <= tapeloader ? tape_in_byte_r : 
+                  chroma81_loader ? ioctl_dout : cpu_dout;
+      ram_addr <= chroma81_loader ? { 7'b0001000, ioctl_addr[13:0] }: {5'd0, ram_a};
+      ram_we_n <= chroma81_loader ? 1'b0 : !wren_a;
+      if (ram_we_n && ~tapeloader) ch81_out <= sram_data;
    end else begin
       if (ram_we_n) ram_out = sram_data;
-      ram_addr <= { 7'b0000100, ch81_addr };
+      ram_addr <= { 7'b0001000, ch81_addr };
       ram_we_n <= ~ch81_wrena;
       ram_in   <= cpu_dout;
    end
@@ -1072,9 +1126,10 @@ always @(posedge clk_sys) begin :block9_qschar
 end
 
 ////////////////////  SOUND //////////////////////
-wire [7:0] psg_out;
+wire [7:0] psg_out, psg_outjt;
 wire       psg_sel = ~nIORQ & &addr[3:0]; //xF
 wire [7:0] psg_ch_a, psg_ch_b, psg_ch_c;
+wire [7:0] psg_ch_ajt, psg_ch_bjt, psg_ch_cjt;
 
 ym2149 psg
 (
@@ -1083,12 +1138,40 @@ ym2149 psg
 	.RESET(reset),
 	.BDIR(psg_sel & ~nWR),
 	.BC(psg_sel & (&addr[7:6] ^ nWR)),
+   .SEL( 1'b0 ),
+   .MODE( 1'b1 ),  //0 = YM2149, 1=AY8910
 	.DI(cpu_dout),
 	.DO(psg_out),
 	.CHANNEL_A(psg_ch_a),
 	.CHANNEL_B(psg_ch_b),
 	.CHANNEL_C(psg_ch_c)
 );
+
+jt49_bus psgjt
+( // note that input ports are not multiplexed
+    .rst_n(~reset),
+    .clk(clk_sys),    // signal on positive edge
+    .clk_en(ce_psg) /* synthesis direct_enable = 1 */,
+    // bus control pins of original chip
+    .bdir(psg_sel & ~nWR),
+    .bc1(psg_sel & (&addr[7:6] ^ nWR)),
+    .din(cpu_dout),
+
+    .sel( 1'b1 ), // if sel is low, the clock is divided by 2  //Test: JT=psg_sel, JT2=1, JT3=0
+    .dout(psg_outjt),
+    .sound( ),  // combined channel output
+    .A(psg_ch_ajt),      // linearised channel output
+    .B(psg_ch_bjt),
+    .C(psg_ch_cjt),
+    .sample(),
+
+    .IOA_in(),
+    .IOA_out(),
+
+    .IOB_in(),
+    .IOB_out()
+);
+
 
 // Route vsync through a high-pass filter to filter out sync signals from the
 // tape audio
@@ -1109,25 +1192,27 @@ rc_filter_1o #(
 	.dout_o(mic_out)
 );
 
-wire [8:0] audio_l = { 1'b0, psg_ch_a } + { 1'b0, psg_ch_c } + { 3'd0, mic_bit, 4'd0 };
-wire [8:0] audio_r = { 1'b0, psg_ch_b } + { 1'b0, psg_ch_c } + { 3'd0, mic_bit, 4'd0 };
+wire [8:0] audio_l = psgjt_r ? { 1'b0, psg_ch_ajt } + { 1'b0, psg_ch_cjt } + { 3'd0, mic_bit, 4'd0 } :
+                     { 1'b0, psg_ch_a } + { 1'b0, psg_ch_c } + { 3'd0, mic_bit, 4'd0 };
+wire [8:0] audio_r = psgjt_r ? { 1'b0, psg_ch_bjt } + { 1'b0, psg_ch_cjt } + { 3'd0, mic_bit, 4'd0 } :
+                     { 1'b0, psg_ch_b } + { 1'b0, psg_ch_c } + { 3'd0, mic_bit, 4'd0 };
 
 reg tape_data;
 reg audiotapeon_r; 
 
-sigma_delta_dac #(7) dac_l
+sigma_delta_dac #(8) dac_l
 (
 	.CLK(clk_sys),
 	.RESET(reset),
-	.DACin( audio_l[8:1] | ( 7'b1111111 & (tape_data && audiotapeon_r))),
+	.DACin( audio_l[8:0] | ( 8'b11111111 & (tape_data && audiotapeon_r))),
 	.DACout(AUDIO_L)
 );
 
-sigma_delta_dac #(7) dac_r
+sigma_delta_dac #(8) dac_r
 (
 	.CLK(clk_sys),
 	.RESET(reset),
-	.DACin(audio_r[8:1] | ( 7'b1111111 & (tape_data && audiotapeon_r))),
+	.DACin(audio_r[8:0] | ( 8'b11111111 & (tape_data && audiotapeon_r))),
 	.DACout(AUDIO_R)
 );
 
@@ -1147,6 +1232,25 @@ always @(posedge clk_sys) begin :audio_mic_reg
       audiomicon_r   <= 1'b1;
    end
    else if ( f9key_r == 1'b1 && Fn[9] == 1'b0) audiomicon_r <= ~audiomicon_r;
+end
+
+//always @(posedge clk_sys) begin :composite_video_carrier_reg
+//	reg f8key_r;
+//   f8key_r <= Fn[8];
+//   if (!locked) begin
+//      vcompport_r   <= 1'b0;
+//   end
+//   else if ( f8key_r == 1'b1 && Fn[8] == 1'b0) vcompport_r <= ~vcompport_r;
+//end
+always @(*) vcompport_r <= status[1]; //composite_video_carrier_reg
+
+always @(posedge clk_sys) begin :jt49_ym2149_select_reg
+	reg f7key_r;
+   f7key_r <= Fn[7];
+   if (!locked) begin
+      psgjt_r   <= 1'b1;
+   end
+   else if ( f7key_r == 1'b1 && Fn[7] == 1'b0) psgjt_r <= ~psgjt_r;
 end
 
 //assign AUDIO_L   = {audio_l, 6'd0};

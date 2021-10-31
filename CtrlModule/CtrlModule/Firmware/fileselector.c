@@ -9,7 +9,7 @@ extern int file_type; //Tipo de fichero a cargar
 static void listroms();
 static void selectrom(int row);
 static void scrollroms(int row);
-int (*loadfunction)(const char *filename); // Callback function
+int (*loadfunction)(const char *filename, const char *filename_alt); // Callback function
 extern int dipsw;
 static char romfilenames[13][30];
 
@@ -44,6 +44,7 @@ static void copyname(char *dst,const unsigned char *src,int l)
 		if (j==0) *dst=' ';
 	}
 	*dst++=0;
+	*dst++=0;
 }
 
 
@@ -68,8 +69,11 @@ static void selectrom(int row)
 	{
 		copyname(longfilename,p->Name,11);	// Make use of the long filename buffer to store a temporary copy of the filename,
 											// since loading it by name will overwrite the sector buffer which currently contains it!
+		
+		copyname(longfilename_alt,p->Name,8);
+		copyname(longfilename_alt+8,"COL",3);
 		if(loadfunction)
-			(*loadfunction)(longfilename);
+			(*loadfunction)(longfilename,longfilename_alt);
 	}
 }
 
@@ -200,8 +204,21 @@ void FileSelectorROM_Show(int row)
 	FileSelector_Show(row);
 }
 
+void FileSelectorCOL_Show(int row)
+{
+//  dwsitch rom mask: 1111 1111 1100 0111 1111 - FFC7F 
+//                .p: 0000 0000 0000 1000 0000 - 00080
+//                .o: 0000 0000 0001 0000 0000 - 00100
+//              .col: 0000 0000 0001 1000 0000 - 00180
+//              .rom: 0000 0000 0011 1000 0000 - 00380
+	file_type = 4; //1 = .p, 2 = .o, 3 = .rom, 4 = .col
+	dipsw = (dipsw & 0xFFC7F) | 0x180;
+	HW_HOST(REG_HOST_SW)=dipsw;
+	FileSelector_Show(row);
+}
 
-void FileSelector_SetLoadFunction(int (*func)(const char *filename))
+
+void FileSelector_SetLoadFunction(int (*func)(const char *filename, const char *filename_alt))
 {
 	loadfunction=func;
 }

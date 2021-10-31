@@ -16,9 +16,12 @@ void Set_Menu_Parent(int row);
 void Set_Menu_1o2(int tipo);
 void Delay();
 void MegaDelay();
+void SetConfigIni();
 int OSD_Puts(char *str);
 
 struct menu_entry *topmenu;
+char cfgini[13] = "000000000000";
+extern int comp_carrier_on;
 
 // Computer Model ZX81 / ZX80
 static char *model_labels[]=
@@ -87,6 +90,7 @@ static struct menu_entry topmenu2[]=
 	{MENU_ENTRY_CALLBACK,"Load Tape (.p) \x10",MENU_ACTION(&FileSelectorP_Show)},
 	{MENU_ENTRY_CALLBACK,"Load Tape (.o) \x10",MENU_ACTION(&FileSelectorO_Show)},
     {MENU_ENTRY_CALLBACK,"Load Rom  (.rom) \x10",MENU_ACTION(&FileSelectorROM_Show)},
+	//{MENU_ENTRY_CALLBACK,"Load Rom  (.col) \x10",MENU_ACTION(&FileSelectorCOL_Show)},
 	{MENU_ENTRY_CALLBACK,"Configuration options \x10",MENU_ACTION(&Options_menu)},
 	{MENU_ENTRY_CALLBACK,"Keyboard Help",MENU_ACTION(&Keyboard_Help)},
 	{MENU_ENTRY_CALLBACK,"Exit",MENU_ACTION(&Menu_Hide)},
@@ -102,6 +106,7 @@ static struct menu_entry topmenu1[]=
 	{MENU_ENTRY_CALLBACK,"Load Tape (.p) \x10",MENU_ACTION(&FileSelectorP_Show)},
 	{MENU_ENTRY_CALLBACK,"Load Tape (.o) \x10",MENU_ACTION(&FileSelectorO_Show)},
     {MENU_ENTRY_CALLBACK,"Load Rom  (.rom) \x10",MENU_ACTION(&FileSelectorROM_Show)},
+	//{MENU_ENTRY_CALLBACK,"Load Rom  (.col) \x10",MENU_ACTION(&FileSelectorCOL_Show)},
 	{MENU_ENTRY_CALLBACK,"Configuration options \x10",MENU_ACTION(&Options_menu)},
 	{MENU_ENTRY_CALLBACK,"Keyboard Help",MENU_ACTION(&Keyboard_Help)},
 	{MENU_ENTRY_CALLBACK,"Exit",MENU_ACTION(&Menu_Hide)},
@@ -118,7 +123,7 @@ static struct menu_entry KeyboardHelp[]=
 	{MENU_ENTRY_CALLBACK,"RGB and VGA video mode",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"Ctrl+Alt+Delete: Soft Reset" ,MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"Ctrl+Alt+Backspace: Hard reset" ,MENU_ACTION(&NoSelection)},
-	{MENU_ENTRY_CALLBACK,"Esc or joystick bt.2: to show",MENU_ACTION(&NoSelection)},
+	{MENU_ENTRY_CALLBACK,"F5 or joystick bt.2: to show",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"or hide the options menu.",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"WASD / cursor keys / joystick",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"to select menu option.",MENU_ACTION(&NoSelection)},
@@ -139,9 +144,9 @@ static struct menu_entry CoreCredits[]=
 	{MENU_ENTRY_CALLBACK,"Original cores by:",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK," - Szombathelyi Gyorgy (Mist)",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK," - Sorgelig (Mister)",MENU_ACTION(&NoSelection)},
+	{MENU_ENTRY_CALLBACK," - Jotego (JT49 degign)",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"Port made by: AvlixA",MENU_ACTION(&NoSelection)},
-	{MENU_ENTRY_CALLBACK,"",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_CALLBACK,"",MENU_ACTION(&NoSelection)},
 	{MENU_ENTRY_SUBMENU,"OK",MENU_ACTION(&topmenu)},
 	{MENU_ENTRY_NULL,0,0}
@@ -240,4 +245,91 @@ int OSD_Puts(char *str)
 	while((c=*str++))
 		OSD_Putchar(c);
 	return(1);
+}
+
+void SetConfigIni()
+{
+	dipsw=0; //traspaso de opciones a core. Default
+	//dipsw
+	//	bit 0: Low RAM: Off/8KB
+	//	bit 1: QS CHRS: off/on
+	//	bit 2: CHROMA81: Disabled/Enabled
+	//  bit 3: Inverse video: Off/On
+	//  bit 4: Black border: Off/On
+	//  bit 5: Video frequency:50Hz,60Hz;
+	//  bit 6: Composite video carrier signal: off/on
+	//  bit 9-7: file type mask while downloading
+	//	bit 10: Model: 0 - ZX81 / 1: ZX80
+	//  bit 12-11: Main RAM: 00 - 16KB, 01 - 32KB, 10 - 48KB, 11 - 1KB
+	//  bit 14-13: Joystick: 00 - Cursor, 01 - Sinclair, 10 - ZX81
+	//  bit 16-15: CHR$128/UDG: 00 - 128 Chars, 01 - 64 Chars, 10 - Disabled
+	//  bit 18-17: Slow mode speed: 00 - Original, 01 - NoWait, 10 - x2, 11 - x8
+	//
+	// config.txt
+	// 000000000000
+	// ||||||||||||------- 11-Slow mode speed: 0 - Original, 1 - NoWait, 2 - x2, 3 - x8
+	// |||||||||||-------- 10-CHR$128/UDG: 00 - 128 Chars, 1 - 64 Chars, 2 - Disabled
+	// ||||||||||--------- 9-Joystick: 0 - Cursor, 1 - Sinclair, 2 - ZX81
+	// |||||||||---------- 8-Main RAM: 0 - 16KB, 1 - 32KB, 2 - 48KB, 3 - 1KB
+	// ||||||||----------- 7-Machine model: 0:ZX81, 1:ZX80
+	// |||||||------------ 6-Composite video carrier signal: 0: off, 1: on
+	// ||||||------------- 5-Video frequency: 0:50Hz, 1:60Hz
+	// |||||-------------- 4-Black border: 0: off, 1: on
+	// ||||--------------- 3-Inverse video: 0: off, 1: on
+	// |||---------------- 2-CHROMA81: 0:Disabled, 1:Enabled
+	// ||----------------- 1-QS CHRS: 0: off, 1: on
+	// |------------------ 0-Low RAM: 0: Off, 1: 8KB
+
+	MENU_TOGGLE_VALUES = 0;
+
+	if (cfgini[0]=='1') {
+		MENU_TOGGLE_VALUES |= 1;
+		dipsw|=1;	// Add in the Low RAM bit.
+	}
+
+	if (cfgini[1]=='1') {
+		MENU_TOGGLE_VALUES |= 2;
+		dipsw|=2;	// Add in the QS CHRS bit
+	}
+
+	if (cfgini[2]=='1') {
+		MENU_TOGGLE_VALUES |= 4;
+		dipsw|=4;	// Add in the CHROMA81 bit
+	}
+
+	if (cfgini[3]=='1') {
+		MENU_TOGGLE_VALUES |= 8;
+		dipsw|=8;	// Add in the Inverse video A bit
+	}
+
+	if (cfgini[4]=='1') {
+		MENU_TOGGLE_VALUES |= 16;
+		dipsw|=16;	// Add in the Black border bit
+	}
+
+	if (cfgini[5]=='1') {
+		MENU_TOGGLE_VALUES |= 32;
+		dipsw|=32;	// Add in the Video frequency bit
+	}
+
+	if (cfgini[6]=='1') {
+		MENU_TOGGLE_VALUES |= 64;
+		dipsw|=64;	// Composite video carrier signal on/off
+		comp_carrier_on = 1;
+	}
+
+	MENU_CYCLE_VALUE(&OptionsMenu[2]) = cfgini[7] - 48; //7-Machine model: 0:ZX81, 1:ZX80
+	MENU_CYCLE_VALUE(&OptionsMenu[3]) = cfgini[8] - 48; //8-Main RAM: 0 - 16KB, 1 - 32KB, 2 - 48KB, 3 - 1KB
+	MENU_CYCLE_VALUE(&OptionsMenu[5]) = cfgini[9] - 48; //9-Joystick: 0 - Cursor, 1 - Sinclair, 2 - ZX81
+	MENU_CYCLE_VALUE(&OptionsMenu[7]) = cfgini[10] - 48; //10-CHR$128/UDG: 00 - 128 Chars, 1 - 64 Chars, 2 - Disabled
+	MENU_CYCLE_VALUE(&OptionsMenu[11]) = cfgini[11] - 48; //11-Slow mode speed: 0 - Original, 1 - NoWait, 2 - x2, 3 - x8
+
+	dipsw=dipsw|(MENU_CYCLE_VALUE(&OptionsMenu[2])<<10);	 // Take the value of the model labels cycle menu entry.
+	dipsw=dipsw|(MENU_CYCLE_VALUE(&OptionsMenu[3])<<11); // Take the value of the ram labels cycle menu entry.
+	dipsw=dipsw|(MENU_CYCLE_VALUE(&OptionsMenu[5])<<13); // Take the value of the joystick labels cycle menu entry.
+	dipsw=dipsw|(MENU_CYCLE_VALUE(&OptionsMenu[7])<<14); // Take the value of the chrudg labels cycle menu entry.
+	dipsw=dipsw|(MENU_CYCLE_VALUE(&OptionsMenu[11])<<17); // Take the value of the slowmode labels cycle menu entry.
+
+	HW_HOST(REG_HOST_SW)=dipsw;	// Send the new values to the hardware.
+
 }

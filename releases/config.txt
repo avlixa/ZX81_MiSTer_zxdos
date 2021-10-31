@@ -1,0 +1,15 @@
+001010002000
+0123456789AB
+||||||||||||------- B-Slow mode speed: 0 - Original, 1 - NoWait, 2 - x2, 3 - x8
+|||||||||||-------- A-CHR$128/UDG: 00 - 128 Chars, 1 - 64 Chars, 2 - Disabled
+||||||||||--------- 9-Joystick: 0 - Cursor, 1 - Sinclair, 2 - ZX81
+|||||||||---------- 8-Main RAM: 0 - 16KB, 1 - 32KB, 2 - 48KB, 3 - 1KB
+||||||||----------- 7-Machine model: 0:ZX81, 1:ZX80
+|||||||------------ 6-Composite video carrier signal: 0: off, 1: on
+||||||------------- 5-Video frequency: 0:50Hz, 1:60Hz
+|||||-------------- 4-Black border: 0: off, 1: on
+||||--------------- 3-Inverse video: 0: off, 1: on
+|||---------------- 2-CHROMA81: 0:Disabled, 1:Enabled
+||----------------- 1-QS CHRS: 0: off, 1: on
+|------------------ 0-Low RAM: 0: Off, 1: 8KB
+

@@ -11,6 +11,7 @@
 fileTYPE file;
 
 extern int keys_p1[];
+extern char cfgini[];
 extern int keys_p2[];
 extern int joy_pins;  //(SACUDLRB) => SACBRLDU
 extern int currentrow;
@@ -19,6 +20,7 @@ int dipsw; //traspaso de opciones a core.
 // bit 2 - 
 // bit 
 int file_type=0; //tipo de fichero a cargar
+int comp_carrier_on=0;
 
 //static char debugline[13][30];
 
@@ -32,41 +34,37 @@ void ResetLoader()
 }
 */
 
-/*
-static int LoadKeys()
+void LoadConfigTxt()
 {
 	int opened;
 	
 	HW_HOST(REG_HOST_CONTROL)=HOST_CONTROL_RESET;
 	HW_HOST(REG_HOST_CONTROL)=HOST_CONTROL_DIVERT_SDCARD; // Release reset but take control of the SD card
-	// Anulamos para ZX81
-	if((opened=FileOpen(&file,"KEYSP1     \0")))
+	
+	if((opened=FileOpen(&file,"CONFIG  TXT\0")))
 	{
 		if(FileRead(&file,sector_buffer))
 		{
 			
-			keys_p1[0] = (int)sector_buffer[0];
-			keys_p1[1] = (int)sector_buffer[1];
-			keys_p1[2] = (int)sector_buffer[2];
-			keys_p1[3] = (int)sector_buffer[3];
-			keys_p1[4] = (int)sector_buffer[4];
+			cfgini[0]  = (char)sector_buffer[0];
+			cfgini[1]  = (char)sector_buffer[1];
+			cfgini[2]  = (char)sector_buffer[2];
+			cfgini[3]  = (char)sector_buffer[3];
+			cfgini[4]  = (char)sector_buffer[4];
+			cfgini[5]  = (char)sector_buffer[5];
+			cfgini[6]  = (char)sector_buffer[6];
+			cfgini[7]  = (char)sector_buffer[7];
+			cfgini[8]  = (char)sector_buffer[8];
+			cfgini[9]  = (char)sector_buffer[9];
+			cfgini[10]  = (char)sector_buffer[10];
+			cfgini[11]  = (char)sector_buffer[11];
+
 		}		
 	}
 	
-	if((opened=FileOpen(&file,"KEYSP2     \0")))
-	{
-		if(FileRead(&file,sector_buffer))
-		{
-			keys_p2[0] = (int)sector_buffer[0];
-			keys_p2[1] = (int)sector_buffer[1];
-			keys_p2[2] = (int)sector_buffer[2];
-			keys_p2[3] = (int)sector_buffer[3];
-			keys_p2[4] = (int)sector_buffer[4];
-		}		
-	}
-	
+	SetConfigIni();
+
 }
-*/
 
 static int LoadROM_nomenu(const char *filename)
 {
@@ -76,12 +74,14 @@ static int LoadROM_nomenu(const char *filename)
 //  dwsitch rom mask: 1111 1111 1100 0111 1111 - FFC7F 
 //                .p: 0000 0000 0000 1000 0000 - 00080
 //                .o: 0000 0000 0001 0000 0000 - 00100
+//              .col: 0000 0000 0001 1000 0000 - 00180
 //              .rom: 0000 0000 0011 1000 0000 - 00380
 
-	switch(file_type) { //1 = .p, 2 = .o, 3 = .rom
+	switch(file_type) { //1 = .p, 2 = .o, 3 = .rom, 4 = .col
 
     	case 2:  dipsw = (dipsw & 0xFFC7F) | 0x100; break;
 		case 3: dipsw = (dipsw & 0xFFC7F) | 0x380; break;
+		case 4: dipsw = (dipsw & 0xFFC7F) | 0x180; break;
 		default: dipsw = (dipsw & 0xFFC7F) | 0x80;
 	}	
 	HW_HOST(REG_HOST_SW)=dipsw;
@@ -163,9 +163,20 @@ static int LoadROM_nomenu(const char *filename)
 	return(result);
 }
 
-static int LoadROM(const char *filename)
+static int LoadROM(const char *filename, const char *filename_alt)
 {
 	int result=0;
+	int aux_filetype;
+	
+
+	//if ( file_type==1 || file_type==2 ) //.p , .o
+	//{	
+	//	aux_filetype = file_type;
+	//	file_type = 4;	//.col
+	//	result=LoadROM_nomenu(filename_alt);
+	//	file_type = aux_filetype;
+	//}
+
 	result=LoadROM_nomenu(filename);
 
 	//Reset(0); //Don't reset on load tape in ZX81 core
@@ -191,7 +202,8 @@ int main(int argc,char **argv)
 	//  bit 3: Inverse video: Off/On
 	//  bit 4: Black border: Off/On
 	//  bit 5: Video frequency:50Hz,60Hz;
-	//
+	//  bit 6: Composite video carrier signal: off/on
+	//  bit 9-7: file type mask while downloading
 	//	bit 10: Model: 0 - ZX81 / 1: ZX80
 	//  bit 12-11: Main RAM: 00 - 16KB, 01 - 32KB, 10 - 48KB, 11 - 1KB
 	//  bit 14-13: Joystick: 00 - Cursor, 01 - Sinclair, 10 - ZX81
@@ -245,6 +257,10 @@ int main(int argc,char **argv)
 			
 		}
 		else{ OSD_Puts("Error Loading ROM...\n"); }
+		//Load initial configuration file config.txt
+		LoadConfigTxt();
+		//load initial values on dipsw
+		dipsw=HW_HOST(REG_HOST_SW);
 	}
 	else{ OSD_Puts("Error Loading ROM...\n"); }
 
@@ -254,7 +270,7 @@ int main(int argc,char **argv)
 	FileSelector_SetLoadFunction(LoadROM);
 
 	// Valores iniciales menu
-	MENU_TOGGLE_VALUES = dipsw;
+	//MENU_TOGGLE_VALUES = dipsw;
 	HW_HOST(REG_HOST_SW)=dipsw;
     
 	
@@ -291,7 +307,7 @@ int main(int argc,char **argv)
 		//  bit 3: Inverse video: Off/On
 		//  bit 4: Black border: Off/On
 		//  bit 5: Video frequency:50Hz,60Hz;
-		//
+		//  bit 6: Composite video carrier signal: off/on
 		//  bit 9-7: Downloading File type: 111 - rom, 001 - .p, 010 - .o, 
 		//	bit 10: Model: 0 - ZX81 / 1: ZX80
 		//  bit 12-11: Main RAM: 00 - 16KB, 01 - 32KB, 10 - 48KB, 11 - 1KB
@@ -317,6 +333,9 @@ int main(int argc,char **argv)
 			dipsw|=16;	// Add in the Black border bit
 		if(MENU_TOGGLE_VALUES&32)
 			dipsw|=32;	// Add in the Video frequency bit
+		if(comp_carrier_on == 1)
+			dipsw|=64;	// Add in the Composite video carrier signal: off/on
+
 		HW_HOST(REG_HOST_SW)=dipsw;	// Send the new values to the hardware.
 
 		// If the menu's visible, prevent keystrokes reaching the host core.

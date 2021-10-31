@@ -35,7 +35,7 @@ module rom_loader (
    input wire  host_bootdata_download,
    output reg  host_bootdata_ack,
 	input wire  [15:0] host_bootdata_size,
-   input wire  [2:0] host_file_type,  //Downloading File type: 111 - rom, 001 - .p, 010 - .o, 011 - .c
+   input wire  [2:0] host_file_type,  //Downloading File type: 111 - rom, 001 - .p, 010 - .o, 
 
    // ARM -> FPGA download
 	output wire        ioctl_download, // signal indicating an active download
@@ -72,7 +72,6 @@ module rom_loader (
    assign ioctl_download  = host_bootdata_download;
    assign ioctl_index = (host_file_type == 3'b111) ? 16'h0000 :   //load rom
                         (host_file_type == 3'b010) ? 16'h001F :   //load tape .o 0001 1111
-                        (host_file_type == 3'b011) ? 16'h003F :   //load tape .col 0011 1111
                         16'h005F ;  //load tape .p 0101 1111
    assign ioctl_wr = loader_write;
    assign ioctl_addr = { 5'b0, loader_addr };

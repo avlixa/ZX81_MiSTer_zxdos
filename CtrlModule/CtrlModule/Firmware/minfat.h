@@ -68,6 +68,7 @@ typedef union {
 // BEWARE, this buffer is also used and thus trashed by all other functions
 extern unsigned char sector_buffer[512];
 extern char longfilename[260];
+extern char longfilename_alt[260];
 //extern unsigned char *sector_buffer;
 extern unsigned int cluster_size;
 extern unsigned long cluster_mask;

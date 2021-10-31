@@ -47,7 +47,7 @@
 # PART OF THIS FILE AT ALL TIMES.
 # 
 
-set device xc6slx25ftg256-2
+set device xc6slx9tqg144-2
 set projName clk_wiz_v3_6
 set design clk_wiz_v3_6
 set projDir [file dirname [info script]]

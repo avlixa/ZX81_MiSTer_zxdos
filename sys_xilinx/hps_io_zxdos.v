@@ -42,6 +42,7 @@ module hps_io //#(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
 	
 	output wire [1:0] buttons,
 	output wire       forced_scandoubler,
+   input wire        defvmode, //default video mode
 
 	output wire [31:0] status,
 	input wire  [63:0] status_in,
@@ -123,7 +124,8 @@ module hps_io //#(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
    assign status[6] = dswitch[5];  //Video frequency:50Hz/60Hz;
    assign status[5] = dswitch[4];  //Black border: Off/On
    assign status[4] = dswitch[10]; //Model: 0 - ZX81 / 1: ZX80
-   assign status[3:1] = 0;
+   assign status[3:2] = 0;
+   assign status[1] = dswitch[6];  //Composite video carrier signal off/on
    assign status[0] = softreset | !host_reset_n;
 
 		//dswitch 
@@ -134,7 +136,7 @@ module hps_io //#(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
 		// bit 4: Black border: Off/On
 		// bit 5: Video frequency:50Hz/60Hz;
 		//
-      //  bit 9-7: Downloading File type: 000 - rom, 001 - .p, 010 - .o, 
+      //  bit 9-7: Downloading File type: 111 - rom, 001 - .p, 010 - .o, 011 - .col
 		//	bit 10: Model: 0 - ZX81 / 1: ZX80
 		// bit 12-11: Main RAM: 00 - 16KB, 01 - 32KB, 10 - 48KB, 11 - 1KB
 		// bit 14-13: Joystick: 00 - Cursor, 01 - Sinclair, 10 - ZX81
@@ -194,6 +196,7 @@ module hps_io //#(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
    always @(posedge clk_sys) begin   
       f2key_prev <= f2key;
       videokey_prev <= videokey || videokey_ZPU;
+      if (!p_o_reset_n) videomode <= defvmode;
       if (reset) begin
          f2key_prev <= 0;
          videokey_prev <= 0;
