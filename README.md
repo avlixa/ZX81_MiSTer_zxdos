@@ -1,6 +1,7 @@
 # [ZX80](https://en.wikipedia.org/wiki/ZX80) / [ZX81](https://en.wikipedia.org/wiki/ZX81) for ZXDOS+ Platform
 
-Port of MiSTer version by Sorgelic
+Port of MiSTer version by Sorgelig
+
 Port of MiST version by Szombathelyi Gyorgy
 
 ### Features:
@@ -8,7 +9,7 @@ Port of MiST version by Szombathelyi Gyorgy
 - Selectable ZX80/ZX81
   + ZX80 currently working only in RGB mode, VGA depends on monitor
 - 16k/32k/48k RAM packs
-- 8KB with CHR$128/UDG addon (not tested)
+- 8KB with CHR$128/UDG addon
 - QS CHRS (press F1 to enable/disable the alternative chars) 
 - [CHROMA81](http://www.fruitcake.plus.com/Sinclair/ZX81/Chroma/ChromaInterface.htm)
 - Turbo in Slow mode: NoWait, x2, x8
@@ -16,11 +17,9 @@ Port of MiST version by Szombathelyi Gyorgy
 - Joystick types: Cursor, Sinclar, ZX81, ZXpand
 - PAL/NTSC timings
 - Turbo loading of .o and .p files
-  + .o files not working
-  + .p files: partially working
 - Load via ear conector, available only if not .o or .p loaded
 - Load alternative ROM.
-- Load colorization and char files (not implemented in ZUNO/ZXDOS)
+- Load colorization and char files (not implemented in ZUNO/ZXDOS/ZXDOS+)
 - Soft reset: CTRL-ALT-DEL or OSD
 - Hard reset: CTRL-ALT-BCKSPC
 - OSD menu: F5 or Fire 2 in joystick
@@ -35,7 +34,8 @@ Port of MiST version by Szombathelyi Gyorgy
 
 ### Install
 Optional: copy rom ZX8X.ROM on folder /zx81/roms: it is a concatenation of ZX81 rom (8k) + ZX80 rom (4k)
-copy .zxd file and install it via BIOS
+
+Copy .zx1/zx2/.zxd file and install it via BIOS
 
 ### CONFIG.TXT file structure
 ```
@@ -66,7 +66,7 @@ Other kinds of joystick will be disabled if ZXpand access is detected to avoid c
 Only direct ZXpand joystick port is supported. $1FFE call is not supported as the ZXpand ROM is not used.
 
 ### Colorization and Char files
-Not implemented yet: only supported those included in .p file
+Not implemented yet: only supported those included in .p/.o file
 
 Core supports .col and .chr files loading together with main .p file if the have the same name.
 For proper .col file work, CHROMA81 should be enabled before loading. For .chr file QS CHRS should be enabled before loading.
