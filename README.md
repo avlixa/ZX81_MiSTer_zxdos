@@ -38,6 +38,7 @@ Optional: copy rom ZX8X.ROM on folder /zx81/roms: it is a concatenation of ZX81 
 copy .zxd file and install it via BIOS
 
 ### CONFIG.TXT file structure
+```
 001010002000
 0123456789AB
 ||||||||||||------- B-Slow mode speed: 0 - Original, 1 - NoWait, 2 - x2, 3 - x8
@@ -52,7 +53,7 @@ copy .zxd file and install it via BIOS
 |||---------------- 2-CHROMA81: 0:Disabled, 1:Enabled
 ||----------------- 1-QS CHRS: 0: off, 1: on
 |------------------ 0-Low RAM: 0: Off, 1: 8KB
-
+```
 
 ### Tape loading
 Selecting an .o (ZX80) or .p (ZX81) file opens the tape. 
