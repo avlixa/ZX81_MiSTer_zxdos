@@ -112,7 +112,7 @@ module hps_io //#(parameter STRLEN=0, PS2DIV=0, WIDE=0, VDNUM=1, PS2WE=0)
    assign buttons = 0;
    assign status[31:21] = 0;
    assign status[20] = dswitch[2]; //CHROMA81: Disabled/Enabled
-   assign status[19] = dswitch[1]; //QS CHRS
+   assign status[19] = ~dswitch[1]; //QS CHRS: Enabled(F1),Disabled;
    assign status[18:17] = dswitch[18:17];  //Slow mode speed: 00 - Original, 01 - NoWait, 10 - x2, 11 - x8
    assign status[16] = dswitch[0];  //Low RAM: Off/8KB
    assign status[15:14] = dswitch[16:15];  //CHR$128/UDG: 00 - 128 Chars, 01 - 64 Chars, 10 - Disabled

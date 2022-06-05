@@ -133,12 +133,14 @@ module zx81_
    inout wire JOY1_C,	
 
    // Joystick2
-   input wire JOY2_U,
+   //input wire JOY2_U,
    input wire JOY2_D,
    input wire JOY2_L,
    input wire JOY2_R,
    input wire JOY2_A,
    input wire JOY2_B,
+   
+   output wire UART_RESET,
 `endif
 
    //SRAM
@@ -153,9 +155,9 @@ module zx81_
    inout   [7:0]   sram_data,
    output          sram_we_n,
 `elsif ZX1
-	output [20:0]   sram_addr,
-   inout   [7:0]   sram_data,
-   output          sram_we_n,
+	output [20:0]    sram_addr,
+   inout wire [7:0] sram_data,
+   output           sram_we_n,
 `endif
    
 	//SD-SPI
@@ -168,7 +170,9 @@ module zx81_
 );
 
 assign {SD_SCK, SD_MOSI, SD_CS} = 3'bZZZ;
-
+`ifdef ZX1
+assign UART_RESET = 1'b0; //evitar chisporroteo en addon WIFI
+`endif
 //assign LED_USER  = ioctl_download | tape_ready;
 
 wire CLK_VIDEO;
@@ -227,6 +231,7 @@ wire vga_de;
 wire clk_sys;
 wire clk_156m; //156Mhz para portadora NTSC
 wire locked;
+reg  p_o_reset;
 
 pll pll
 (	.refclk(CLK_50M),
@@ -308,7 +313,7 @@ assign joy1_s[4] = JOY1_A;
 assign joy1_s[5] = JOY1_B;
 assign joy1_s[6] = JOY1_C;
 
-assign joy2_s[0] = JOY2_U;
+//assign joy2_s[0] = JOY2_U;
 assign joy2_s[1] = JOY2_D;
 assign joy2_s[2] = JOY2_L;
 assign joy2_s[3] = JOY2_R;
@@ -324,7 +329,7 @@ hps_io hps_io
 (
 	.clk_sys(clk_sys),
    .reset(reset),
-   .p_o_reset_n(locked),
+   .p_o_reset_n(~p_o_reset),
    .ps2_kbd_clk_in(PS2_CLK),
    .ps2_kbd_data_in(PS2_DATA),
 
@@ -535,10 +540,10 @@ assign sram_lb_n = 1'b0;
 wire  [7:0]  ram_out;
 assign ram_out = sram_data;
 always @* begin
-   if(!locked) begin
+   if(p_o_reset) begin
       ram_addr <= 21'h08FD5;
       ram_we_n <= 1'b1;
-      def_vmode_r <= ~sram_data[0];
+      def_vmode_r <= sram_data[0];
    end else begin
       ram_in   <= tapeloader ? tape_in_byte_r : cpu_dout;
       ram_addr <= {5'd0, ram_a};
@@ -587,9 +592,13 @@ always @(posedge clk_sys) begin :block2_reset
 		zx81 <= ~status[4]; // Model:ZX81,ZX80;
 		mem_size <= status[11:10] + 1'd1; //Main RAM:16KB,32KB,48KB,1KB;
 	end
-   if(!locked) timeout <= 10000;
+   if(!locked) begin
+      timeout <= 20'h13FF; //5119 //10000
+      p_o_reset <= 1'b1;
+   end
    else if(timeout) timeout <= timeout - 1;
 	if(zx81 != ~status[4] || mem_size != (status[11:10] + 1'd1)) timeout <= 10000; // Model:ZX81,ZX80; //Main RAM:16KB,32KB,48KB,1KB;
+   if (!timeout[3:0]) p_o_reset <= 1'b0;
 end
 
 ////////////////////  TAPE  //////////////////////
@@ -1043,12 +1052,13 @@ reg sram_cycle = 1'b0;
 reg  [13:0] ch81_addr;
 reg   ch81_wrena;
 wire chroma81_loader = ioctl_wr && ioctl_index[4:0] && (ioctl_index[7:5]==1) && !ioctl_addr[24:10];
+wire def_vmode_d;
 
 always @(posedge clk_sys) begin
    sram_cycle <= ~sram_cycle;
    ch81_addr  <= nRFSH ? addr[13:0] : {ram_data_latch[7], rom_a[8:0]};
    ch81_wrena <= ~nWR & ~nMREQ & ch81_e;
-   if(!locked) begin
+   if(p_o_reset) begin
       ram_addr <= 21'h08FD5;
       ram_we_n <= 1'b1;
       def_vmode_r <= sram_data[0];
